@@ -1,5 +1,15 @@
 import React, { useState, useEffect, useRef, useMemo, useContext } from 'react';
 import {
+  supabase,
+  listEntries,
+  upsertEntry,
+  deleteEntry,
+  loadMoods,
+  saveMoods,
+  migrateSeedIfEmpty,
+} from './db';
+import { ENABLE_SUGGESTIONS } from './config';
+import {
   Search, Plus, FileText, BookOpen, ChevronDown, X, Trash2,
   Pencil, Filter, LayoutGrid, BarChart3,
 } from 'lucide-react';
@@ -172,10 +182,9 @@ Rules:
 Return ONLY valid JSON in this exact shape, with no preamble or markdown fences:
 {"suggestions":[{"keepsake":"Exact Keepsake Name","reason":"..."}]}`;
 
-// Static builds have no server to hold the Anthropic API key, so the live
-// Keepsake suggestions are off. Flip this to true once a backend proxy exists
-// (see DEPLOYMENT.md — the Supabase Edge Function).
-const SUGGESTIONS_ENABLED = false;
+// Suggestions run through the `suggest-keepsakes` Supabase Edge Function,
+// which holds the Anthropic API key server-side. Toggle in src/config.js.
+const SUGGESTIONS_ENABLED = ENABLE_SUGGESTIONS;
 
 async function fetchKeepsakeSuggestions(title, content, unavailable, signal) {
   const unavailableBlock =
@@ -192,30 +201,16 @@ async function fetchKeepsakeSuggestions(title, content, unavailable, signal) {
     '\n\nEntry:\n' +
     (content || '(empty)');
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+  // The Edge Function holds the Anthropic API key and relays the request.
+  const { data, error } = await supabase.functions.invoke('suggest-keepsakes', {
+    body: { userMessage },
     signal,
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1000,
-      messages: [{ role: 'user', content: userMessage }],
-    }),
   });
-
-  const bodyText = await response.text();
-
-  if (!response.ok) {
-    throw new Error(
-      'API ' + response.status + ': ' + bodyText.slice(0, 200)
-    );
+  if (error) {
+    throw new Error('Suggestion service: ' + (error.message || String(error)));
   }
-
-  let data;
-  try {
-    data = JSON.parse(bodyText);
-  } catch (e) {
-    throw new Error('Non-JSON response: ' + bodyText.slice(0, 200));
+  if (data?.error) {
+    throw new Error('Suggestion service: ' + String(data.error).slice(0, 200));
   }
 
   if (!Array.isArray(data?.content)) {
@@ -340,8 +335,8 @@ const MOODS = [
 
 const moodById = (id) => MOODS.find((m) => m.id === id);
 
-// Single artifact-storage blob: { [dayOfYear]: [moodId, moodId?] }.
-const MOOD_STORAGE_KEY = 'moods:2026';
+// Moods are stored in Supabase as one JSON map per year:
+// { [dayOfYear]: [moodId, moodId?] } — see src/db.js.
 
 // One Date per day of 2026, so tooltips can show the weekday.
 const DAYS_2026 = (() => {
@@ -1765,71 +1760,38 @@ export default function App() {
   const [moodModalDay, setMoodModalDay] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const [loadError, setLoadError] = useState('');
+
   useEffect(() => {
     async function load() {
       try {
-        const list = await window.storage.list('entry:');
-        if (list?.keys?.length) {
-          const items = await Promise.all(
-            list.keys.map(async (key) => {
-              try {
-                const r = await window.storage.get(key);
-                return r ? JSON.parse(r.value) : null;
-              } catch {
-                return null;
-              }
-            })
-          );
-          setEntries(items.filter(Boolean));
-        }
+        // First login on an empty account: push the bundled seed into Supabase
+        // once, then read back. Any device after that just reads.
+        await migrateSeedIfEmpty();
+        const [entryList, moodMap] = await Promise.all([listEntries(), loadMoods()]);
+        setEntries(entryList);
+        setMoodData(moodMap && typeof moodMap === 'object' ? moodMap : {});
       } catch (e) {
-        console.error('entry load failed', e);
+        console.error('load failed', e);
+        setLoadError(
+          'Could not load your data: ' +
+            (e?.message || String(e)) +
+            ' — check that the database tables exist (see SETUP.md).'
+        );
       }
-
-      // Moods live in one artifact-storage blob. On first run, fall back to any
-      // data left in the old standalone tracker's localStorage and migrate it
-      // in once, silently — so the days already reconciled aren't lost.
-      try {
-        let moods = null;
-        try {
-          const r = await window.storage.get(MOOD_STORAGE_KEY);
-          if (r) moods = JSON.parse(r.value);
-        } catch {
-          moods = null;
-        }
-        if (!moods) {
-          try {
-            const legacy = window.localStorage?.getItem('yip2026');
-            if (legacy) {
-              moods = JSON.parse(legacy);
-              await window.storage.set(MOOD_STORAGE_KEY, JSON.stringify(moods));
-            }
-          } catch {
-            /* localStorage may be unavailable in the sandbox; ignore */
-          }
-        }
-        if (moods && typeof moods === 'object') setMoodData(moods);
-      } catch (e) {
-        console.error('mood load failed', e);
-      }
-
       setLoading(false);
     }
     load();
   }, []);
 
   async function handleCreate(data) {
-    if (!window.storage || typeof window.storage.set !== 'function') {
-      return { ok: false, error: 'Storage is unavailable in this environment.' };
-    }
     const entry = {
       id: 'entry_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
       ...data,
       createdAt: new Date().toISOString(),
     };
     try {
-      const result = await window.storage.set('entry:' + entry.id, JSON.stringify(entry));
-      if (!result) return { ok: false, error: 'Storage returned no result.' };
+      await upsertEntry(entry);
       setEntries((prev) => [...prev, entry]);
       setTab('log');
       return { ok: true };
@@ -1840,15 +1802,11 @@ export default function App() {
   }
 
   async function handleUpdate(id, data) {
-    if (!window.storage || typeof window.storage.set !== 'function') {
-      return { ok: false, error: 'Storage is unavailable in this environment.' };
-    }
     const existing = entries.find((e) => e.id === id);
     if (!existing) return { ok: false, error: 'Entry not found.' };
     const updated = { ...existing, ...data, updatedAt: new Date().toISOString() };
     try {
-      const result = await window.storage.set('entry:' + id, JSON.stringify(updated));
-      if (!result) return { ok: false, error: 'Storage returned no result.' };
+      await upsertEntry(updated);
       setEntries((prev) => prev.map((e) => (e.id === id ? updated : e)));
       return { ok: true };
     } catch (e) {
@@ -1859,7 +1817,7 @@ export default function App() {
 
   async function handleDelete(id) {
     try {
-      await window.storage.delete('entry:' + id);
+      await deleteEntry(id);
       setEntries((prev) => prev.filter((e) => e.id !== id));
     } catch (e) {
       console.error('delete failed', e);
@@ -1872,11 +1830,15 @@ export default function App() {
     else delete next[day];
     setMoodData(next);
     try {
-      await window.storage.set(MOOD_STORAGE_KEY, JSON.stringify(next));
+      await saveMoods(next);
     } catch (e) {
       console.error('mood save failed', e);
     }
     setMoodModalDay(null);
+  }
+
+  async function handleSignOut() {
+    await supabase.auth.signOut();
   }
 
   const narrow = useIsNarrow(520);
@@ -1901,12 +1863,27 @@ export default function App() {
     <TooltipLayer>
       <div className="min-h-screen bg-gray-50 text-gray-900">
         <div className="max-w-2xl mx-auto px-4 py-6">
-          <header className="mb-6">
-            <h1 className="text-xl font-semibold text-gray-900">Keepsake Log</h1>
-            <p className="text-gray-500 text-xs mt-0.5">
-              A microblog for the Hobonichi-bound, with a Year in Pixels
-            </p>
+          <header className="mb-6 flex items-start justify-between gap-3">
+            <div>
+              <h1 className="text-xl font-semibold text-gray-900">Keepsake Log</h1>
+              <p className="text-gray-500 text-xs mt-0.5">
+                A microblog for the Hobonichi-bound, with a Year in Pixels
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="flex-shrink-0 text-xs text-gray-400 hover:text-gray-700 transition-colors"
+            >
+              Sign out
+            </button>
           </header>
+
+          {loadError && (
+            <div className="mb-4 text-xs text-red-600 border border-red-200 bg-red-50 rounded-md px-3 py-2">
+              {loadError}
+            </div>
+          )}
 
           <nav className="flex gap-1 border-b border-gray-200 mb-5">
             {TABS.map(({ key, icon: Icon, full, short }) => (
