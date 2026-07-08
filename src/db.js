@@ -6,7 +6,13 @@ import { createClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_KEY } from './config';
 import seed from './seed';
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+// Guard: with placeholder config, create a dummy client instead of crashing at
+// import time, so AuthGate can show the "fill in config.js" message.
+const configured = !SUPABASE_URL.startsWith('PASTE_');
+export const supabase = createClient(
+  configured ? SUPABASE_URL : 'https://placeholder.supabase.co',
+  configured ? SUPABASE_KEY : 'placeholder',
+);
 
 // ---- row <-> entry mapping (snake_case in Postgres, camelCase in the app) ----
 const rowToEntry = (r) => ({
