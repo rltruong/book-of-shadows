@@ -15,8 +15,8 @@
 // Edge Function's secrets on Supabase.
 // ============================================================
 
-export const SUPABASE_URL = 'https://ywxfqvxnbslhuunrqklr.supabase.co';
-export const SUPABASE_KEY = 'sb_publishable_r5z8GHtantwACFPl0_N0MQ__CSZkb-S';
+export const SUPABASE_URL = 'PASTE_YOUR_SUPABASE_URL_HERE';
+export const SUPABASE_KEY = 'PASTE_YOUR_PUBLISHABLE_KEY_HERE';
 
 // Set to false to hide the LLM Keepsake suggestions (e.g. if you
 // haven't set up the Edge Function yet).

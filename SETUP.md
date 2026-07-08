@@ -24,15 +24,17 @@ You'll do five things:
 2. Open `setup/schema.sql` from this project, copy ALL of it, paste, press **Run**.
 3. You should see "Success. No rows returned."
 
-## 3. Turn on email sign-in
+## 3. Set up password sign-in
 
 1. Left sidebar: **Authentication** → **Sign In / Providers**. Make sure
    **Email** is enabled (it is by default).
-2. Then **Authentication** → **URL Configuration**:
-   - Set **Site URL** to your GitHub Pages address, e.g.
-     `https://YOUR-USERNAME.github.io/keepsake-log/`
-   - Add the same address under **Redirect URLs**.
-   This is what makes the emailed login link bring you back to the app.
+2. Create your user directly — no emails involved:
+   **Authentication** → **Users** → **Add user** → **Create new user**.
+   Enter your email and choose a strong password. Check **Auto Confirm User**
+   so no confirmation email is needed. Click Create.
+3. That email + password is what you use on the app's sign-in screen, on
+   every device. To change the password later, use the ⋮ menu next to the
+   user on that same page.
 
 ## 4. Create the suggestion function (for LLM Keepsake suggestions)
 
@@ -64,10 +66,19 @@ pay-per-use and these small suggestion calls cost fractions of a cent.)
    repository (replacing the old ones). The included
    `.github/workflows/deploy.yml` rebuilds and publishes automatically.
 
+## Session behavior
+
+Signing in starts a rolling **72-hour** window (same as the Expense Tracker):
+every time you open the app the clock resets, so the sign-in screen only
+returns after roughly 72 hours of *not* opening it. Signing out ends the
+window immediately. Note for iPhone home-screen use: iOS can purge a web
+app's local storage after long disuse, which also clears the window — you'd
+just sign in again.
+
 ## First run
 
-Open your GitHub Pages URL. You'll see a sign-in box — enter your email, click
-the link that arrives, and you're in. On first sign-in the app automatically
+Open your GitHub Pages URL. Sign in with the email + password you created in
+step 3. On first sign-in the app automatically
 copies the bundled starter data (your entries and mood days) into your
 Supabase account. From then on, sign in with the same email anywhere —
 desktop, phone, tablet — and everything stays in sync.

@@ -1846,8 +1846,8 @@ export default function App() {
   const TABS = [
     { key: 'form', icon: FileText, full: 'Fill Form', short: 'Form' },
     { key: 'log', icon: BookOpen, full: 'Keepsake Log', short: 'Log' },
-    { key: 'tracker', icon: LayoutGrid, full: 'Tracker', short: 'Tracker' },
-    { key: 'summary', icon: BarChart3, full: 'Summary', short: 'Summary' },
+    { key: 'tracker', icon: LayoutGrid, full: 'Mood Tracker', short: 'Tracker' },
+    { key: 'summary', icon: BarChart3, full: 'Mood Summary', short: 'Summary' },
   ];
 
   const tabClass = (t) =>
@@ -1865,9 +1865,10 @@ export default function App() {
         <div className="max-w-2xl mx-auto px-4 py-6">
           <header className="mb-6 flex items-start justify-between gap-3">
             <div>
-              <h1 className="text-xl font-semibold text-gray-900">Keepsake Log</h1>
+              <h1 className="text-xl font-semibold text-gray-900">Book of Shadows</h1>
               <p className="text-gray-500 text-xs mt-0.5">
-                A microblog for the Hobonichi-bound, with a Year in Pixels
+                Digital working surface for to-dos, microblogging, and tracking
+                mood in a Year in Pixels matrix
               </p>
             </div>
             <button
