@@ -938,7 +938,7 @@ function MoodPie({ counts }) {
   const cy = 140;
   const r = 130;
   const labelR = r * 0.65;
-  const FS = 12; // matches text-xs used elsewhere on the tab; SVG renders 1:1, so this is real pixels
+  const FS = 14; // SVG renders 1:1, so this is real pixels
   const paths = [];
   const outside = []; // leader-line labels, laid out after all slices are measured
 
@@ -972,10 +972,10 @@ function MoodPie({ counts }) {
         <circle key={'c' + i} cx={cx} cy={cy} r={r} fill={e.hex} stroke="#fff" strokeWidth="1.5" />
       );
       paths.push(
-        <text key={'tn' + i} x={cx} y={cy - 7.5} textAnchor="middle" dominantBaseline="middle" fontSize={FS} fontWeight="600" fill={labelFill}>
+        <text key={'tn' + i} x={cx} y={cy - 8.5} textAnchor="middle" dominantBaseline="middle" fontSize={FS} fontWeight="600" fill={labelFill}>
           {e.label}
         </text>,
-        <text key={'tp' + i} x={cx} y={cy + 7.5} textAnchor="middle" dominantBaseline="middle" fontSize={FS} fill={labelFill}>
+        <text key={'tp' + i} x={cx} y={cy + 8.5} textAnchor="middle" dominantBaseline="middle" fontSize={FS} fill={labelFill}>
           {pctLabel(e.count)}
         </text>
       );
@@ -1008,16 +1008,16 @@ function MoodPie({ counts }) {
     const pctText = pctLabel(e.count);
     const halfW = Math.max(svgTextWidth(e.label, 600, FS), svgTextWidth(pctText, 400, FS)) / 2;
     const bound = labelR * Math.sin(Math.min(angle / 2, Math.PI / 2));
-    const fits = Math.hypot(halfW, 13) <= bound;
+    const fits = Math.hypot(halfW, 15) <= bound;
 
     if (fits) {
       const lx = cx + labelR * Math.cos(mid);
       const ly = cy + labelR * Math.sin(mid);
       paths.push(
-        <text key={'tn' + i} x={lx} y={ly - 7.5} textAnchor="middle" dominantBaseline="middle" fontSize={FS} fontWeight="600" fill={labelFill}>
+        <text key={'tn' + i} x={lx} y={ly - 8.5} textAnchor="middle" dominantBaseline="middle" fontSize={FS} fontWeight="600" fill={labelFill}>
           {e.label}
         </text>,
-        <text key={'tp' + i} x={lx} y={ly + 7.5} textAnchor="middle" dominantBaseline="middle" fontSize={FS} fill={labelFill}>
+        <text key={'tp' + i} x={lx} y={ly + 8.5} textAnchor="middle" dominantBaseline="middle" fontSize={FS} fill={labelFill}>
           {pctText}
         </text>
       );
@@ -1039,7 +1039,7 @@ function MoodPie({ counts }) {
   [-1, 1].forEach((side) => {
     const group = outside.filter((o) => o.side === side).sort((a, b) => a.y - b.y);
     group.forEach((o, gi) => {
-      if (gi > 0) o.y = Math.max(o.y, group[gi - 1].y + 16);
+      if (gi > 0) o.y = Math.max(o.y, group[gi - 1].y + 18);
     });
   });
   const leaders = outside.map((o) => {
@@ -1049,8 +1049,8 @@ function MoodPie({ counts }) {
     const hx = ex + o.side * TICK;
     const tx = hx + o.side * 3;
     const w = svgTextWidth(o.text, 400, FS);
-    extend(tx + o.side * w, o.y - 7);
-    extend(tx, o.y + 7);
+    extend(tx + o.side * w, o.y - 8);
+    extend(tx, o.y + 8);
     return (
       <g key={'o' + o.key}>
         <polyline
