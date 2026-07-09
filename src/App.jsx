@@ -814,7 +814,7 @@ function TrackerTab({ moodData, onOpenMood }) {
 /* ---- Summary tab: counts, bar chart, switchable pie ---- */
 
 function SummaryTab({ moodData }) {
-  const [mode, setMode] = useState('bar');
+  const [mode, setMode] = useState('pie');
 
   const { counts, totalDays } = useMemo(() => {
     const c = {};
@@ -872,7 +872,7 @@ function SummaryTab({ moodData }) {
           Mood frequency
         </h3>
         <div className="flex gap-2">
-          {['bar', 'pie'].map((mk) => (
+          {['pie', 'bar'].map((mk) => (
             <button
               key={mk}
               type="button"
@@ -934,14 +934,33 @@ function MoodPie({ counts }) {
     );
   }
 
-  const size = 200;
   const cx = 100;
   const cy = 100;
   const r = 90;
-  let start = -Math.PI / 2;
+  const labelR = r * 0.65;
+  const FS = 11; // label font size, inside and out
   const paths = [];
+  const outside = []; // leader-line labels, laid out after all slices are measured
+
+  // Track drawing extents so the viewBox hugs pie + labels exactly.
+  let minX = cx - r - 2;
+  let maxX = cx + r + 2;
+  let minY = cy - r - 2;
+  let maxY = cy + r + 2;
+  const extend = (x, y) => {
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  };
+
+  const pctLabel = (count) => {
+    const pct = Math.round((count / total) * 100);
+    return (pct === 0 ? '<1' : pct) + '%';
+  };
+
+  let start = -Math.PI / 2;
   entries.forEach((e, i) => {
-    const pct = Math.round((e.count / total) * 100);
     const labelFill =
       luminance(e.hex) > 160 ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.9)';
 
@@ -953,17 +972,11 @@ function MoodPie({ counts }) {
         <circle key={'c' + i} cx={cx} cy={cy} r={r} fill={e.hex} stroke="#fff" strokeWidth="1.5" />
       );
       paths.push(
-        <text
-          key={'t' + i}
-          x={cx}
-          y={cy}
-          textAnchor="middle"
-          dominantBaseline="middle"
-          fontSize="14"
-          fontWeight="700"
-          fill={labelFill}
-        >
-          {pct}%
+        <text key={'tn' + i} x={cx} y={cy - 7} textAnchor="middle" dominantBaseline="middle" fontSize={FS} fontWeight="600" fill={labelFill}>
+          {e.label}
+        </text>,
+        <text key={'tp' + i} x={cx} y={cy + 7} textAnchor="middle" dominantBaseline="middle" fontSize={FS} fill={labelFill}>
+          {pctLabel(e.count)}
         </text>
       );
       return;
@@ -986,49 +999,101 @@ function MoodPie({ counts }) {
         strokeWidth="1.5"
       />
     );
-    if (pct >= 5) {
-      const lx = cx + r * 0.65 * Math.cos(mid);
-      const ly = cy + r * 0.65 * Math.sin(mid);
+
+    // Fit test: the name + percentage block (two lines, ~26px tall) must fit
+    // inside the slice around the label anchor at 0.65r. The binding
+    // constraint is the distance from that anchor to the slice's straight
+    // edges, which is labelR * sin(half-angle); comparing the block's
+    // half-diagonal against it is orientation-agnostic and conservative.
+    const pctText = pctLabel(e.count);
+    const halfW = Math.max(svgTextWidth(e.label, 600, FS), svgTextWidth(pctText, 400, FS)) / 2;
+    const bound = labelR * Math.sin(Math.min(angle / 2, Math.PI / 2));
+    const fits = Math.hypot(halfW, 12) <= bound;
+
+    if (fits) {
+      const lx = cx + labelR * Math.cos(mid);
+      const ly = cy + labelR * Math.sin(mid);
       paths.push(
-        <text
-          key={'t' + i}
-          x={lx}
-          y={ly}
-          textAnchor="middle"
-          dominantBaseline="middle"
-          fontSize="12"
-          fontWeight="700"
-          fill={labelFill}
-        >
-          {pct}%
+        <text key={'tn' + i} x={lx} y={ly - 6.5} textAnchor="middle" dominantBaseline="middle" fontSize={FS} fontWeight="600" fill={labelFill}>
+          {e.label}
+        </text>,
+        <text key={'tp' + i} x={lx} y={ly + 6.5} textAnchor="middle" dominantBaseline="middle" fontSize={FS} fill={labelFill}>
+          {pctText}
         </text>
       );
+    } else {
+      outside.push({
+        key: i,
+        text: `${e.label} ${pctText}`,
+        mid,
+        side: Math.cos(mid) >= 0 ? 1 : -1,
+        y: cy + (r + 14) * Math.sin(mid),
+      });
     }
     start = end;
   });
 
+  // Lay out leader-line labels: per side, top to bottom, nudged apart so
+  // neighbors never overlap (min 14px between baselines).
+  const TICK = 12;
+  [-1, 1].forEach((side) => {
+    const group = outside.filter((o) => o.side === side).sort((a, b) => a.y - b.y);
+    group.forEach((o, gi) => {
+      if (gi > 0) o.y = Math.max(o.y, group[gi - 1].y + 14);
+    });
+  });
+  const leaders = outside.map((o) => {
+    const p1x = cx + (r + 2) * Math.cos(o.mid);
+    const p1y = cy + (r + 2) * Math.sin(o.mid);
+    const ex = cx + (r + 14) * Math.cos(o.mid);
+    const hx = ex + o.side * TICK;
+    const tx = hx + o.side * 3;
+    const w = svgTextWidth(o.text, 400, FS);
+    extend(tx + o.side * w, o.y - 7);
+    extend(tx, o.y + 7);
+    return (
+      <g key={'o' + o.key}>
+        <polyline
+          points={`${p1x},${p1y} ${ex},${o.y} ${hx},${o.y}`}
+          fill="none"
+          stroke="#9ca3af"
+          strokeWidth="1"
+        />
+        <text x={tx} y={o.y} textAnchor={o.side === 1 ? 'start' : 'end'} dominantBaseline="middle" fontSize={FS} fill="#4b5563">
+          {o.text}
+        </text>
+      </g>
+    );
+  });
+
+  const pad = 4;
+  const vbW = maxX - minX + pad * 2;
+  const vbH = maxY - minY + pad * 2;
+
   return (
-    <div className="flex items-start gap-6 flex-wrap">
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ overflow: 'visible' }}>
-        {paths}
-      </svg>
-      <div className="flex flex-col gap-2">
-        {entries.map((e) => (
-          <div key={e.id} className="flex items-center gap-2 text-xs text-gray-500">
-            <span
-              className="w-3 h-3 rounded-full flex-shrink-0"
-              style={{ background: e.hex }}
-            />
-            {e.label}{' '}
-            <span className="ml-1 font-medium text-gray-900">{e.count}</span>
-          </div>
-        ))}
-      </div>
-    </div>
+    <svg
+      viewBox={`${minX - pad} ${minY - pad} ${vbW} ${vbH}`}
+      style={{ width: '100%', maxWidth: 420, height: 'auto', display: 'block' }}
+    >
+      {paths}
+      {leaders}
+    </svg>
   );
 }
 
-// Reusable shared styles
+// Measure label text at the app's font so slice fit tests and viewBox extents
+// use real widths, not estimates. Falls back to a character heuristic if no
+// DOM (never the case in the browser, but keeps this pure-function safe).
+let _measureCtx = null;
+function svgTextWidth(str, weight, px) {
+  if (!_measureCtx && typeof document !== 'undefined') {
+    _measureCtx = document.createElement('canvas').getContext('2d');
+  }
+  if (!_measureCtx) return str.length * px * 0.6;
+  _measureCtx.font = `${weight} ${px}px ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
+  return _measureCtx.measureText(str).width;
+}
+
 const inputBase =
   'w-full px-3 py-2 bg-white border border-gray-300 rounded text-base text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900';
 
@@ -1372,7 +1437,7 @@ function EntryForm({ initial, entries, onSave, onCancel, submitLabel = 'Add to L
             type="datetime-local"
             value={datetime}
             onChange={(e) => setDatetime(e.target.value)}
-            className={`${inputBase} flex-1`}
+            className={`${inputBase} flex-1 min-w-0`}
           />
           <button
             type="button"
@@ -1662,7 +1727,7 @@ function LogFilters({ entries, filters, setFilters }) {
         )}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <div>
+        <div className="min-w-0">
           <label className="block text-xs text-gray-500 mb-1">From</label>
           <input
             type="date"
@@ -1671,7 +1736,7 @@ function LogFilters({ entries, filters, setFilters }) {
             className={`${inputBase} text-sm`}
           />
         </div>
-        <div>
+        <div className="min-w-0">
           <label className="block text-xs text-gray-500 mb-1">To</label>
           <input
             type="date"
