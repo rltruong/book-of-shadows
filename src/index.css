@@ -10,3 +10,21 @@ body,
 body {
   margin: 0;
 }
+
+/* iOS Safari gives date/datetime inputs an intrinsic minimum width from
+   their internal shadow DOM, so `width: 100%` can't shrink them below it
+   and they overflow their container on narrow viewports. Zeroing min-width
+   lets the declared width win. */
+input[type='date'],
+input[type='datetime-local'] {
+  min-width: 0;
+}
+
+/* Slightly larger type on phones for legibility. Tailwind's text sizes are
+   rem-based, so bumping the root font-size scales all app text (and rem-based
+   spacing, marginally) in one place. 520px matches the useIsNarrow breakpoint. */
+@media (max-width: 520px) {
+  html {
+    font-size: 17px;
+  }
+}

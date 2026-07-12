@@ -1095,7 +1095,7 @@ function svgTextWidth(str, weight, px) {
 }
 
 const inputBase =
-  'w-full px-3 py-2 bg-white border border-gray-300 rounded text-base text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900';
+  'w-full min-w-0 px-3 py-2 bg-white border border-gray-300 rounded text-base text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900';
 
 const labelBase = 'block text-xs font-medium text-gray-600 mb-1.5';
 
