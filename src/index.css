@@ -25,7 +25,10 @@ input[type='datetime-local'] {
   max-width: 100%;
   box-sizing: border-box;
   overflow: hidden;
-  min-height: 1.5em;
+  /* Match the computed height of the app's other inputs/selects:
+     1px borders + py-2 (0.5rem × 2) + text-base line (1.5rem). With the
+     native appearance stripped, empty pickers otherwise collapse shorter. */
+  min-height: calc(2.5rem + 2px);
   text-align: left;
 }
 
