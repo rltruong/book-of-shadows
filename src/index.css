@@ -11,13 +11,22 @@ body {
   margin: 0;
 }
 
-/* iOS Safari gives date/datetime inputs an intrinsic minimum width from
-   their internal shadow DOM, so `width: 100%` can't shrink them below it
-   and they overflow their container on narrow viewports. Zeroing min-width
-   lets the declared width win. */
+/* iOS Safari's native date/datetime picker sizes itself from its internal
+   shadow UI and ignores CSS width (these inputs are inline-flex in WebKit,
+   which ignored width:100% entirely in iOS 17). min-width:0 alone is not
+   enough — stripping the native appearance is what lets CSS regain control.
+   min-height keeps the empty state from collapsing once appearance is gone. */
 input[type='date'],
 input[type='datetime-local'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
   min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  min-height: 1.5em;
+  text-align: left;
 }
 
 /* Slightly larger type on phones for legibility. Tailwind's text sizes are
