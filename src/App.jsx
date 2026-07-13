@@ -1090,7 +1090,7 @@ function svgTextWidth(str, weight, px) {
     _measureCtx = document.createElement('canvas').getContext('2d');
   }
   if (!_measureCtx) return str.length * px * 0.6;
-  _measureCtx.font = `${weight} ${px}px ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
+  _measureCtx.font = `${weight} ${px}px Manrope, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`;
   return _measureCtx.measureText(str).width;
 }
 
