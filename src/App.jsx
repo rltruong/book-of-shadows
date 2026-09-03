@@ -821,27 +821,61 @@ function TrackerTab({ moodData, onOpenMood }) {
 // count. Two butt-joined clip-path shapes — no gray ever sits under the
 // color, including the rounded left end. Width 166 is tuned so two columns
 // fit a 375px phone at the 17px mobile root font.
-const MOOD_EMOJI = {
-  happy: '\u{1F604}',
-  motivated: '\u{1F680}',
-  ok: '\u{1F642}',
-  meh: '\u{1F610}',
-  tired: '\u{1F634}',
-  stressed: '\u{1F635}\u{200D}\u{1F4AB}',
-  angry: '\u{1F621}',
-  apathetic: '\u{1FAE5}',
-  sad: '\u{1F622}',
-  sick: '\u{1F927}',
+// Emoji are frozen as bundled images (Microsoft Fluent Emoji, Color style,
+// MIT license — github.com/microsoft/fluentui-emoji, see public/emoji/) so
+// every device shows the same Windows-style set instead of its own platform
+// emoji font. Paths are relative to the page and resolve under the GitHub
+// Pages base automatically.
+const MOOD_EMOJI_SRC = {
+  happy: 'emoji/happy.svg',
+  motivated: 'emoji/motivated.svg',
+  ok: 'emoji/ok.svg',
+  meh: 'emoji/meh.svg',
+  tired: 'emoji/tired.svg',
+  stressed: 'emoji/stressed.svg',
+  angry: 'emoji/angry.svg',
+  apathetic: 'emoji/apathetic.svg',
+  sad: 'emoji/sad.svg',
+  sick: 'emoji/sick.svg',
 };
-// Optical compensation: glyphs whose faces read small at the standard size.
+// Optical compensation: art whose face reads small at the standard size
+// (the sneezing face shares its canvas with the tissue).
 const MOOD_EMOJI_SIZE = { sick: 28 };
 const PILL_W = 166;
 const PILL_H = 40;
+const PILL_BADGE = 22; // count badge height / min width
+const PILL_TEXT_LEFT = 66; // free zone starts past the color block's diagonal
+const PILL_PAD_R = 12;
 const PILL_BODY = '#4b5563';
+// drop-shadow (not text-shadow): traces the image's transparent silhouette.
 const EMOJI_GLOW =
-  '0 0 1px #fff, 0 0 3px #fff, 0 0 5px rgba(255,255,255,0.9)';
+  'drop-shadow(0 0 1px #fff) drop-shadow(0 0 2px #fff) drop-shadow(0 0 3px rgba(255,255,255,0.9))';
 
-function MoodPill({ mood, count }) {
+function pillBadgeWidth(count) {
+  // Circle for 1-2 digits, stretches into a same-height capsule beyond that.
+  return Math.max(
+    PILL_BADGE,
+    Math.ceil(svgTextWidth(String(count), 600, 11)) + 8
+  );
+}
+
+// The one uniform name size for the whole grid: the largest size (max 14,
+// floor 11) at which every mood's name fits its own free zone between the
+// color block and that pill's count badge. Sized as a set so no pill ever
+// renders its name differently from the others.
+function pillNameSize(counts) {
+  let size = 14;
+  for (const m of MOODS) {
+    const avail =
+      PILL_W - PILL_TEXT_LEFT - (PILL_PAD_R + pillBadgeWidth(counts[m.id]) + 4);
+    const w = svgTextWidth(m.label, 500, 14);
+    if (w > avail) size = Math.min(size, Math.floor((14 * avail) / w));
+  }
+  return Math.max(size, 11);
+}
+
+function MoodPill({ mood, count, nameSize }) {
+  const badgeW = pillBadgeWidth(count);
   return (
     <div
       style={{
@@ -869,6 +903,54 @@ function MoodPill({ mood, count }) {
           clipPath: 'polygon(0 0, 64px 0, 48px 100%, 0 100%)',
         }}
       />
+      {/* Name + badge share a flex row, so the name centers in whatever
+          space the badge leaves and can never overlap it. */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          paddingLeft: PILL_TEXT_LEFT,
+          paddingRight: PILL_PAD_R,
+        }}
+      >
+        <span
+          style={{
+            flex: 1,
+            minWidth: 0,
+            textAlign: 'center',
+            color: '#fff',
+            fontSize: nameSize,
+            fontWeight: 500,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            marginRight: 4,
+          }}
+        >
+          {mood.label}
+        </span>
+        <span
+          style={{
+            flex: 'none',
+            minWidth: badgeW,
+            height: PILL_BADGE,
+            borderRadius: PILL_BADGE / 2,
+            padding: '0 4px',
+            boxSizing: 'border-box',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: mood.hex,
+            color: luminance(mood.hex) > 160 ? 'rgba(0,0,0,0.65)' : '#fff',
+            fontSize: 11,
+            fontWeight: 600,
+            lineHeight: 1,
+          }}
+        >
+          {count}
+        </span>
+      </div>
       <span
         style={{
           position: 'absolute',
@@ -879,42 +961,15 @@ function MoodPill({ mood, count }) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: MOOD_EMOJI_SIZE[mood.id] || 26,
-          lineHeight: 1,
-          textShadow: EMOJI_GLOW,
         }}
       >
-        {MOOD_EMOJI[mood.id]}
-      </span>
-      <span
-        style={{
-          position: 'absolute',
-          left: 66,
-          top: 0,
-          height: PILL_H,
-          display: 'flex',
-          alignItems: 'center',
-          color: '#fff',
-          fontSize: 14,
-          fontWeight: 500,
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {mood.label}
-      </span>
-      <span
-        style={{
-          position: 'absolute',
-          right: 14,
-          top: 0,
-          height: PILL_H,
-          display: 'flex',
-          alignItems: 'center',
-          color: 'rgba(255,255,255,0.7)',
-          fontSize: 12,
-        }}
-      >
-        {count}
+        <img
+          src={MOOD_EMOJI_SRC[mood.id]}
+          alt=""
+          width={MOOD_EMOJI_SIZE[mood.id] || 26}
+          height={MOOD_EMOJI_SIZE[mood.id] || 26}
+          style={{ display: 'block', filter: EMOJI_GLOW }}
+        />
       </span>
     </div>
   );
@@ -937,6 +992,8 @@ function SummaryTab({ moodData }) {
     return { counts: c, totalDays: t };
   }, [moodData]);
 
+  const nameSize = useMemo(() => pillNameSize(counts), [counts]);
+
   const max = Math.max(1, ...Object.values(counts));
 
   return (
@@ -946,7 +1003,12 @@ function SummaryTab({ moodData }) {
         style={{ display: 'flex', flexWrap: 'wrap', columnGap: 10, rowGap: 12 }}
       >
         {MOODS.map((m) => (
-          <MoodPill key={m.id} mood={m} count={counts[m.id]} />
+          <MoodPill
+            key={m.id}
+            mood={m}
+            count={counts[m.id]}
+            nameSize={nameSize}
+          />
         ))}
       </div>
 
