@@ -6,13 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_KEY } from './config';
 import seed from './seed';
 
-// Guard: with placeholder config, create a dummy client instead of crashing at
-// import time, so AuthGate can show the "fill in config.js" message.
-const configured = !SUPABASE_URL.startsWith('PASTE_');
-export const supabase = createClient(
-  configured ? SUPABASE_URL : 'https://placeholder.supabase.co',
-  configured ? SUPABASE_KEY : 'placeholder',
-);
+export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ---- row <-> entry mapping (snake_case in Postgres, camelCase in the app) ----
 const rowToEntry = (r) => ({
@@ -91,4 +85,36 @@ export async function migrateSeedIfEmpty() {
     await saveMoods(seed.moods);
   }
   return true;
+}
+
+// ---- fill-form draft: one per user, synced across devices ----
+// A half-written entry autosaves here and is restored on the next visit to
+// the Fill Form, on any device. Cleared on successful submit or discard.
+export async function loadDraft() {
+  const { data, error } = await supabase
+    .from('drafts')
+    .select('payload, updated_at')
+    .maybeSingle();
+  if (error) throw error;
+  return data ?? null;
+}
+
+export async function saveDraft(payload) {
+  const { error } = await supabase
+    .from('drafts')
+    .upsert(
+      { payload, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    );
+  if (error) throw error;
+}
+
+export async function clearDraft() {
+  const { data, error: userError } = await supabase.auth.getUser();
+  if (userError) throw userError;
+  const { error } = await supabase
+    .from('drafts')
+    .delete()
+    .eq('user_id', data.user.id);
+  if (error) throw error;
 }

@@ -7,6 +7,9 @@ import {
   loadMoods,
   saveMoods,
   migrateSeedIfEmpty,
+  loadDraft,
+  saveDraft,
+  clearDraft,
 } from './db';
 import { ENABLE_SUGGESTIONS } from './config';
 import {
@@ -813,6 +816,110 @@ function TrackerTab({ moodData, onOpenMood }) {
 
 /* ---- Summary tab: counts, bar chart, switchable pie ---- */
 
+// Final pill design (Sep 2026): slash-cut color block with the mood's hex,
+// emoji with a white glow riding the color, dark slate body with name and
+// count. Two butt-joined clip-path shapes — no gray ever sits under the
+// color, including the rounded left end. Width 166 is tuned so two columns
+// fit a 375px phone at the 17px mobile root font.
+const MOOD_EMOJI = {
+  happy: '\u{1F604}',
+  motivated: '\u{1F680}',
+  ok: '\u{1F642}',
+  meh: '\u{1F610}',
+  tired: '\u{1F634}',
+  stressed: '\u{1F635}\u{200D}\u{1F4AB}',
+  angry: '\u{1F621}',
+  apathetic: '\u{1FAE5}',
+  sad: '\u{1F622}',
+  sick: '\u{1F927}',
+};
+// Optical compensation: glyphs whose faces read small at the standard size.
+const MOOD_EMOJI_SIZE = { sick: 28 };
+const PILL_W = 166;
+const PILL_H = 40;
+const PILL_BODY = '#4b5563';
+const EMOJI_GLOW =
+  '0 0 1px #fff, 0 0 3px #fff, 0 0 5px rgba(255,255,255,0.9)';
+
+function MoodPill({ mood, count }) {
+  return (
+    <div
+      style={{
+        position: 'relative',
+        width: PILL_W,
+        height: PILL_H,
+        borderRadius: PILL_H / 2,
+        overflow: 'hidden',
+        flex: 'none',
+      }}
+    >
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: PILL_BODY,
+          clipPath: 'polygon(63px 0, 100% 0, 100% 100%, 47px 100%)',
+        }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: mood.hex,
+          clipPath: 'polygon(0 0, 64px 0, 48px 100%, 0 100%)',
+        }}
+      />
+      <span
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          width: 54,
+          height: PILL_H,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: MOOD_EMOJI_SIZE[mood.id] || 26,
+          lineHeight: 1,
+          textShadow: EMOJI_GLOW,
+        }}
+      >
+        {MOOD_EMOJI[mood.id]}
+      </span>
+      <span
+        style={{
+          position: 'absolute',
+          left: 66,
+          top: 0,
+          height: PILL_H,
+          display: 'flex',
+          alignItems: 'center',
+          color: '#fff',
+          fontSize: 14,
+          fontWeight: 500,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {mood.label}
+      </span>
+      <span
+        style={{
+          position: 'absolute',
+          right: 14,
+          top: 0,
+          height: PILL_H,
+          display: 'flex',
+          alignItems: 'center',
+          color: 'rgba(255,255,255,0.7)',
+          fontSize: 12,
+        }}
+      >
+        {count}
+      </span>
+    </div>
+  );
+}
+
 function SummaryTab({ moodData }) {
   const [mode, setMode] = useState('pie');
 
@@ -834,43 +941,24 @@ function SummaryTab({ moodData }) {
 
   return (
     <div>
-      <div className="text-gray-500 mb-3" style={{ fontSize: 13 }}>
-        {totalDays} day{totalDays !== 1 ? 's' : ''} logged so far
-      </div>
-
       <div
         className="mb-6"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-          gap: 10,
-        }}
+        style={{ display: 'flex', flexWrap: 'wrap', columnGap: 10, rowGap: 12 }}
       >
         {MOODS.map((m) => (
-          <div
-            key={m.id}
-            className="flex items-center gap-2.5 bg-gray-50 rounded-md p-3"
-          >
-            <span
-              className="w-6 h-6 rounded-full flex-shrink-0"
-              style={{ background: m.hex }}
-            />
-            <div>
-              <div className="font-medium text-gray-900" style={{ fontSize: 13 }}>
-                {m.label}
-              </div>
-              <div className="text-xs text-gray-500">
-                {counts[m.id]} day{counts[m.id] !== 1 ? 's' : ''}
-              </div>
-            </div>
-          </div>
+          <MoodPill key={m.id} mood={m} count={counts[m.id]} />
         ))}
       </div>
 
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-medium text-gray-900" style={{ fontSize: 15 }}>
-          Mood frequency
-        </h3>
+        <div className="flex items-baseline gap-2.5 min-w-0">
+          <h3 className="font-medium text-gray-900 whitespace-nowrap" style={{ fontSize: 15 }}>
+            Mood frequency
+          </h3>
+          <span className="text-gray-500" style={{ fontSize: 13 }}>
+            {totalDays} day{totalDays !== 1 ? 's' : ''} logged so far
+          </span>
+        </div>
         <div className="flex gap-2">
           {['pie', 'bar'].map((mk) => (
             <button
@@ -1282,6 +1370,42 @@ function KeepsakeSelector({ value, onChange, usedNames }) {
 }
 
 // Shared form used both for creating a new entry and editing an existing one.
+// Bottom-fixed toast shown when a saved draft is restored into the Fill Form.
+// Auto-dismisses; Discard resets the form and deletes the draft everywhere.
+function DraftToast({ savedAt, onDiscard, onClose }) {
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  useEffect(() => {
+    const t = setTimeout(() => onCloseRef.current(), 8000);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <div
+      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-gray-900 text-white rounded-lg shadow-lg px-4 py-3"
+      style={{ fontSize: 13, maxWidth: 'calc(100vw - 2rem)' }}
+    >
+      <span className="whitespace-nowrap">
+        Draft restored from {formatDateTime(savedAt)}
+      </span>
+      <button
+        type="button"
+        onClick={onDiscard}
+        className="font-medium underline underline-offset-2 whitespace-nowrap"
+      >
+        Discard
+      </button>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Dismiss"
+        className="text-gray-400 hover:text-white leading-none"
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
 function EntryForm({ initial, entries, onSave, onCancel, submitLabel = 'Add to Log' }) {
   const [keepsake, setKeepsake] = useState(
     initial?.keepsake ?? null
@@ -1309,6 +1433,93 @@ function EntryForm({ initial, entries, onSave, onCancel, submitLabel = 'Add to L
     setContent('');
     setError('');
   }
+
+  // ---- cross-device draft (new-entry mode only) ----
+  // The draft lives in Supabase (one per user), so a half-written entry
+  // started on the phone reappears on the desktop. Restores only into a
+  // pristine form; autosaves ~1s after typing pauses; flushes on unmount so
+  // switching tabs mid-thought doesn't lose the tail end.
+  const isNewEntry = !initial;
+  const [draftToast, setDraftToast] = useState(null); // { savedAt } | null
+  const draftReadyRef = useRef(false); // block autosave until the restore attempt settles
+  const skipNextSaveRef = useRef(false); // eat the autosave triggered by restore/reset
+  const submittedRef = useRef(false); // don't resave on unmount after a successful submit
+  const dirtyRef = useRef(false);
+  dirtyRef.current = isDirty;
+  const latestRef = useRef(null);
+  latestRef.current = { keepsake, datetime, title, content };
+
+  useEffect(() => {
+    if (!isNewEntry) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const d = await loadDraft();
+        if (cancelled) return;
+        const p = d?.payload;
+        if (p && !dirtyRef.current) {
+          const k = p.keepsakeName
+            ? KEEPSAKES.find((kk) => kk.name === p.keepsakeName) || null
+            : null;
+          skipNextSaveRef.current = true;
+          setKeepsake(k);
+          if (p.datetime) setDatetime(p.datetime);
+          setTitle(p.title || '');
+          setContent(p.content || '');
+          setDraftToast({ savedAt: d.updated_at });
+        }
+      } catch (e) {
+        console.error('Draft load failed:', e);
+      } finally {
+        if (!cancelled) draftReadyRef.current = true;
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isNewEntry]);
+
+  useEffect(() => {
+    if (!isNewEntry) return;
+    if (!draftReadyRef.current) return;
+    if (skipNextSaveRef.current) {
+      skipNextSaveRef.current = false;
+      return;
+    }
+    const dirty = !!keepsake || !!title.trim() || !!content.trim();
+    const handle = setTimeout(() => {
+      const op = dirty
+        ? saveDraft({
+            keepsakeName: keepsake?.name ?? null,
+            emoji: keepsake?.emoji ?? null,
+            datetime,
+            title,
+            content,
+          })
+        : clearDraft();
+      op.catch((e) => console.error('Draft save failed:', e));
+    }, 1000);
+    return () => clearTimeout(handle);
+  }, [isNewEntry, keepsake, datetime, title, content]);
+
+  // Flush on unmount (e.g. tab switch mid-typing beats the debounce).
+  useEffect(() => {
+    if (!isNewEntry) return;
+    return () => {
+      if (!draftReadyRef.current || submittedRef.current) return;
+      const v = latestRef.current;
+      const dirty = !!v.keepsake || !!v.title.trim() || !!v.content.trim();
+      if (dirty) {
+        saveDraft({
+          keepsakeName: v.keepsake?.name ?? null,
+          emoji: v.keepsake?.emoji ?? null,
+          datetime: v.datetime,
+          title: v.title,
+          content: v.content,
+        }).catch((e) => console.error('Draft flush failed:', e));
+      }
+    };
+  }, [isNewEntry]);
 
   // Which Keepsakes are off-limits for this entry. An entry's cycle comes from
   // its datetime, and we exclude the entry itself when editing so its current
@@ -1408,12 +1619,27 @@ function EntryForm({ initial, entries, onSave, onCancel, submitLabel = 'Add to L
     // onSave returns { ok: true } or { ok: false, error: '...' }
     if (!result?.ok) {
       setError(result?.error || 'Failed to save. Try again.');
+    } else if (isNewEntry) {
+      submittedRef.current = true; // parent switches tabs; skip the unmount flush
+      clearDraft().catch((e) => console.error('Draft clear failed:', e));
     }
     setSubmitting(false);
   }
 
   return (
     <div className="space-y-4">
+      {isNewEntry && draftToast && (
+        <DraftToast
+          savedAt={draftToast.savedAt}
+          onDiscard={() => {
+            skipNextSaveRef.current = true;
+            handleReset();
+            clearDraft().catch((e) => console.error('Draft clear failed:', e));
+            setDraftToast(null);
+          }}
+          onClose={() => setDraftToast(null)}
+        />
+      )}
       <div>
         <div className="flex items-baseline justify-between mb-1.5">
           <label className={`${labelBase} mb-0`}>Keepsake</label>
