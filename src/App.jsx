@@ -396,26 +396,55 @@ function textColorForMoods(moods) {
 
 // Edge-to-edge fill: solid for one mood, left→right linear gradient for two.
 function drawGradientCircle(canvas, moods, size) {
+  // Back the canvas at device resolution (3x on iPhone, and desktop zoom
+  // raises it too) so edges are computed at native density instead of
+  // upscaled from CSS pixels.
+  const dpr =
+    (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
   const ctx = canvas.getContext('2d');
-  canvas.width = size;
-  canvas.height = size;
+  canvas.width = Math.max(1, Math.round(size * dpr));
+  canvas.height = Math.max(1, Math.round(size * dpr));
+  ctx.scale(dpr, dpr);
   ctx.clearRect(0, 0, size, size);
   if (!moods || !moods.length) return;
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
-  ctx.clip();
+  // Fill the arc path directly instead of clip()+fillRect: canvas clipping
+  // is aliased (hard stair-stepped edges) in Chromium, while a filled arc
+  // gets proper antialiasing. Radius insets half a pixel so the AA fringe
+  // isn't cut off by the canvas boundary.
+  let fill;
   if (moods.length === 1) {
-    ctx.fillStyle = moodById(moods[0]).hex;
-    ctx.fillRect(0, 0, size, size);
+    fill = moodById(moods[0]).hex;
   } else {
     const grad = ctx.createLinearGradient(0, 0, size, 0);
     grad.addColorStop(0, moodById(moods[0]).hex);
     grad.addColorStop(1, moodById(moods[1]).hex);
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, size, size);
+    fill = grad;
   }
-  ctx.restore();
+  ctx.fillStyle = fill;
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, size / 2 - 0.5, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// Current devicePixelRatio, updating when it changes (browser zoom on
+// desktop, or a window moving between monitors), so circles can redraw at
+// the new density.
+function useDevicePixelRatio() {
+  const [dpr, setDpr] = useState(() =>
+    typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia(`(resolution: ${dpr}dppx)`);
+    const onChange = () => setDpr(window.devicePixelRatio || 1);
+    if (mq.addEventListener) mq.addEventListener('change', onChange);
+    else mq.addListener(onChange);
+    return () => {
+      if (mq.removeEventListener) mq.removeEventListener('change', onChange);
+      else mq.removeListener(onChange);
+    };
+  }, [dpr]);
+  return dpr;
 }
 
 /* ---- Shared mouse-following tooltip (one instance for the whole app) ---- */
@@ -489,10 +518,11 @@ function MoodCircle({
   const canvasRef = useRef(null);
   const [hover, setHover] = useState(false);
   const tip = useContext(TooltipContext);
+  const dpr = useDevicePixelRatio();
 
   useEffect(() => {
     if (canvasRef.current) drawGradientCircle(canvasRef.current, moods, size);
-  }, [moods, size]);
+  }, [moods, size, dpr]);
 
   const colored = !!(moods && moods.length);
   const date = day ? DAYS_2026[day - 1] : null;
