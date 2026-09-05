@@ -280,11 +280,11 @@ function renderRichText(text) {
     }
     if (match[1] !== undefined) {
       out.push(
-        <span key={key++} style={{ color: '#0066cc' }}>{match[1]}</span>
+        <span key={key++} style={{ color: '#5ba3f5' }}>{match[1]}</span>
       );
     } else if (match[2] !== undefined) {
       out.push(
-        <span key={key++} style={{ color: '#0066cc' }}>{match[2]}</span>
+        <span key={key++} style={{ color: '#5ba3f5' }}>{match[2]}</span>
       );
     } else if (match[3] !== undefined) {
       out.push(<strong key={key++}>{match[3]}</strong>);
@@ -530,7 +530,7 @@ function MoodCircle({
         style={{
           border: colored
             ? '1px solid transparent'
-            : '1px solid ' + (onClick && hover ? '#9aa0ab' : '#bcc2cb'),
+            : '1px solid ' + (onClick && hover ? '#3a4650' : '#2b343d'),
           transition: 'border-color .1s',
         }}
       >
@@ -548,8 +548,8 @@ function MoodCircle({
               color: colored
                 ? textColorForMoods(moods)
                 : onClick && hover
-                ? '#4b5563'
-                : '#6b7280',
+                ? '#9aa4ad'
+                : '#707c88',
             }}
           >
             {day}
@@ -613,7 +613,7 @@ function MoodModal({ day, initialMoods, onSave, onClose }) {
                 onClick={() => toggle(m.id)}
                 className="flex items-center gap-2 px-3 py-2 rounded-md text-left transition-colors"
                 style={{
-                  border: '1.5px solid ' + (sel ? m.hex : '#e5e7eb'),
+                  border: '1.5px solid ' + (sel ? m.hex : '#2b343d'),
                   background: sel ? m.hex + '22' : 'transparent',
                 }}
               >
@@ -629,7 +629,7 @@ function MoodModal({ day, initialMoods, onSave, onClose }) {
                     height: 15,
                     fontSize: 8,
                     background: sel ? m.hex : 'transparent',
-                    border: sel ? '1.5px solid transparent' : '1.5px solid #d1d5db',
+                    border: sel ? '1.5px solid transparent' : '1.5px solid #3a4650',
                     color: '#fff',
                   }}
                 >
@@ -846,7 +846,7 @@ const PILL_H = 40;
 const PILL_BADGE = 22; // count badge height / min width
 const PILL_TEXT_LEFT = 66; // free zone starts past the color block's diagonal
 const PILL_PAD_R = 12;
-const PILL_BODY = '#4b5563';
+const PILL_BODY = '#39424c';
 // drop-shadow (not text-shadow): traces the image's transparent silhouette.
 const EMOJI_GLOW =
   'drop-shadow(0 0 1px #fff) drop-shadow(0 0 2px #fff) drop-shadow(0 0 3px rgba(255,255,255,0.9))';
@@ -1206,10 +1206,10 @@ function MoodPie({ counts }) {
         <polyline
           points={`${p1x},${p1y} ${ex},${o.y} ${hx},${o.y}`}
           fill="none"
-          stroke="#9ca3af"
+          stroke="#5b6672"
           strokeWidth="1"
         />
-        <text x={tx} y={o.y} textAnchor={o.side === 1 ? 'start' : 'end'} dominantBaseline="middle" fontSize={FS} fill="#4b5563">
+        <text x={tx} y={o.y} textAnchor={o.side === 1 ? 'start' : 'end'} dominantBaseline="middle" fontSize={FS} fill="#aeb6bf">
           {o.text}
         </text>
       </g>
@@ -1482,8 +1482,15 @@ function DraftToast({ savedAt, onDiscard, onClose }) {
   }, []);
   return (
     <div
-      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-gray-900 text-white rounded-lg shadow-lg px-4 py-3"
-      style={{ fontSize: 13, maxWidth: 'calc(100vw - 2rem)' }}
+      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-lg px-4 py-3"
+      style={{
+        fontSize: 13,
+        maxWidth: 'calc(100vw - 2rem)',
+        background: '#1d242b',
+        border: '1px solid #2b343d',
+        color: '#e7e9ea',
+        boxShadow: '0 6px 20px rgba(0,0,0,0.55)',
+      }}
     >
       <span className="whitespace-nowrap">
         Draft restored from {formatDateTime(savedAt)}
@@ -1499,7 +1506,7 @@ function DraftToast({ savedAt, onDiscard, onClose }) {
         type="button"
         onClick={onClose}
         aria-label="Dismiss"
-        className="text-gray-400 hover:text-white leading-none"
+        className="text-gray-400 leading-none"
       >
         ✕
       </button>
@@ -2256,7 +2263,7 @@ export default function App() {
 
   return (
     <TooltipLayer>
-      <div className="min-h-screen bg-gray-50 text-gray-900">
+      <div className="min-h-screen text-gray-900" style={{ background: '#101418' }}>
         <div className="max-w-2xl mx-auto px-4 py-6">
           <header className="mb-6 flex items-start justify-between gap-3">
             <div>

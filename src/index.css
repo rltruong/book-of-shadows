@@ -7,8 +7,15 @@ body,
 #root {
   height: 100%;
 }
+:root {
+  /* Native controls (iOS date pickers, scrollbars, keyboards) render dark. */
+  color-scheme: dark;
+}
+
 body {
   margin: 0;
+  background: #101418;
+  color: #e7e9ea;
 }
 
 /* iOS Safari's native date/datetime picker sizes itself from its internal

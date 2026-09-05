@@ -182,7 +182,7 @@ export default function AuthGate({ children }) {
 
 function Shell({ children }) {
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 flex items-center justify-center p-4">
+    <div className="min-h-screen text-gray-900 flex items-center justify-center p-4" style={{ background: '#101418' }}>
       <div className="w-full bg-white border border-gray-200 rounded-lg p-6" style={{ maxWidth: 360 }}>
         <h1 className="text-xl font-semibold text-gray-900">Book of Shadows</h1>
         <p className="text-gray-500 text-xs mt-0.5 mb-5">
