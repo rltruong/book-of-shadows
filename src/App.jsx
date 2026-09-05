@@ -1215,7 +1215,14 @@ function MoodPie({ counts }) {
 
   // Lay out leader-line labels: per side, top to bottom, nudged apart so
   // neighbors never overlap (min 14px between baselines).
-  const TICK = 12;
+  // Classic pie-callout layout: each side's labels align in a fixed column
+  // (gutter) just outside the pie, cascaded top-to-bottom, and leaders run
+  // from the slice's arc point on a slant to their label's row. Label order
+  // matches angle order per side, so lines can't cross each other or pass
+  // through neighboring text — which the old per-slice anchoring allowed
+  // when two small slices shared the top of the pie.
+  const TICK = 10;
+  const GUTTER = r + 26;
   [-1, 1].forEach((side) => {
     const group = outside.filter((o) => o.side === side).sort((a, b) => a.y - b.y);
     group.forEach((o, gi) => {
@@ -1225,16 +1232,16 @@ function MoodPie({ counts }) {
   const leaders = outside.map((o) => {
     const p1x = cx + (r + 2) * Math.cos(o.mid);
     const p1y = cy + (r + 2) * Math.sin(o.mid);
-    const ex = cx + (r + 14) * Math.cos(o.mid);
-    const hx = ex + o.side * TICK;
-    const tx = hx + o.side * 3;
+    const gx = cx + o.side * GUTTER;
+    const bx = gx - o.side * TICK;
+    const tx = gx + o.side * 4;
     const w = svgTextWidth(o.text, 400, FS);
     extend(tx + o.side * w, o.y - 8);
     extend(tx, o.y + 8);
     return (
       <g key={'o' + o.key}>
         <polyline
-          points={`${p1x},${p1y} ${ex},${o.y} ${hx},${o.y}`}
+          points={`${p1x},${p1y} ${bx},${o.y} ${gx},${o.y}`}
           fill="none"
           stroke="#5b6672"
           strokeWidth="1"
