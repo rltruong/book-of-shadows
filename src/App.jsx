@@ -1955,6 +1955,8 @@ function EntryForm({ initial, entries, onSave, onCancel, submitLabel = 'Add to L
 function EntryCard({ entry, entries, onDelete, onUpdate, moodData, onOpenMood, tooltipEnabled }) {
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Desktop has room for larger keepsake art; phones keep the tighter 36px.
+  const narrow = useIsNarrow(520);
 
   // Any entry on a 2026 day gets a pixel next to its actions: filled if a mood
   // is logged for that day, otherwise a blank, clickable circle for logging the
@@ -1993,7 +1995,11 @@ function EntryCard({ entry, entries, onDelete, onUpdate, moodData, onOpenMood, t
     <article className="bg-white border border-gray-200 hover:border-gray-300 rounded p-4 transition-colors">
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex items-center gap-2.5 min-w-0">
-          <KeepsakeIcon name={entry.keepsakeName} emoji={entry.emoji} size={36} />
+          <KeepsakeIcon
+            name={entry.keepsakeName}
+            emoji={entry.emoji}
+            size={narrow ? 36 : 44}
+          />
           <div className="min-w-0">
             <div className="text-gray-700 text-sm font-medium truncate">
               {entry.keepsakeName}
