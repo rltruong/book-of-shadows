@@ -1333,7 +1333,7 @@ function KeepsakeSelector({ value, onChange, usedNames }) {
       >
         {value ? (
           <span className="flex items-center gap-2.5">
-            <span className="text-xl leading-none">{value.emoji}</span>
+            <KeepsakeIcon name={value.name} emoji={value.emoji} size={24} />
             <span className="text-gray-900 text-sm">{value.name}</span>
           </span>
         ) : (
@@ -1412,7 +1412,7 @@ function KeepsakeSelector({ value, onChange, usedNames }) {
                       isSelected ? 'border-gray-900' : 'border-transparent'
                     }`}
                   >
-                    <span className="text-lg leading-none">{k.emoji}</span>
+                    <KeepsakeIcon name={k.name} emoji={k.emoji} size={22} />
                     <span className="text-gray-900 text-sm">{k.name}</span>
                   </button>
                 );
@@ -1432,6 +1432,45 @@ function KeepsakeSelector({ value, onChange, usedNames }) {
 }
 
 // Shared form used both for creating a new entry and editing an existing one.
+// Keepsake icons are bundled game art (public/keepsakes/<slug>.png, 72px,
+// personal use). Falls back to the keepsake's emoji if an image is missing,
+// so future keepsakes work before their art is added.
+function keepsakeSlug(name) {
+  return name
+    .toLowerCase()
+    .replace(/'/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function KeepsakeIcon({ name, emoji, size, className = '' }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    setFailed(false);
+  }, [name]);
+  if (failed || !name) {
+    return (
+      <span
+        className={`leading-none flex-shrink-0 ${className}`}
+        style={{ fontSize: Math.round(size * 0.85) }}
+      >
+        {emoji}
+      </span>
+    );
+  }
+  return (
+    <img
+      src={`keepsakes/${keepsakeSlug(name)}.png`}
+      alt=""
+      width={size}
+      height={size}
+      onError={() => setFailed(true)}
+      className={`flex-shrink-0 ${className}`}
+      style={{ display: 'block' }}
+    />
+  );
+}
+
 // Bottom-fixed toast shown when a saved draft is restored into the Fill Form.
 // Auto-dismisses; Discard resets the form and deletes the draft everywhere.
 function DraftToast({ savedAt, onDiscard, onClose }) {
@@ -1841,9 +1880,12 @@ function EntryForm({ initial, entries, onSave, onCancel, submitLabel = 'Add to L
                   onClick={() => setKeepsake(s.keepsake)}
                   className="w-full flex items-start gap-2.5 px-3 py-2 text-left rounded border border-gray-200 bg-white hover:border-gray-400 hover:bg-gray-50 transition-colors"
                 >
-                  <span className="text-lg leading-none flex-shrink-0 mt-0.5">
-                    {s.keepsake.emoji}
-                  </span>
+                  <KeepsakeIcon
+                    name={s.keepsake.name}
+                    emoji={s.keepsake.emoji}
+                    size={22}
+                    className="mt-0.5"
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="text-gray-900 text-sm font-medium">
                       {s.keepsake.name}
@@ -1907,7 +1949,7 @@ function EntryCard({ entry, entries, onDelete, onUpdate, moodData, onOpenMood, t
     <article className="bg-white border border-gray-200 hover:border-gray-300 rounded p-4 transition-colors">
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex items-center gap-2.5 min-w-0">
-          <span className="text-2xl leading-none flex-shrink-0">{entry.emoji}</span>
+          <KeepsakeIcon name={entry.keepsakeName} emoji={entry.emoji} size={36} />
           <div className="min-w-0">
             <div className="text-gray-700 text-sm font-medium truncate">
               {entry.keepsakeName}
