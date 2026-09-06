@@ -193,7 +193,7 @@ async function fetchKeepsakeSuggestions(title, content, unavailable, signal) {
   const unavailableBlock =
     unavailable && unavailable.length > 0
       ? '\n\nIMPORTANT: The following Keepsakes have already been used in the current cycle and MUST NOT be suggested:\n' +
-        unavailable.map((n) => '- ' + n).join('\n')
+      unavailable.map((n) => '- ' + n).join('\n')
       : '';
 
   const userMessage =
@@ -324,16 +324,16 @@ function nowLocalString() {
    ============================================================ */
 
 const MOODS = [
-  { id: 'happy',     label: 'Happy',     hex: '#68CDC4' },
+  { id: 'happy', label: 'Happy', hex: '#68CDC4' },
   { id: 'motivated', label: 'Motivated', hex: '#D74893' },
-  { id: 'ok',        label: 'OK',        hex: '#C6CD55' },
-  { id: 'meh',       label: 'Meh',       hex: '#FFF991' },
-  { id: 'tired',     label: 'Tired',     hex: '#FFC12A' },
-  { id: 'stressed',  label: 'Stressed',  hex: '#FF6E12' },
-  { id: 'angry',     label: 'Angry',     hex: '#FA6610' },
+  { id: 'ok', label: 'OK', hex: '#C6CD55' },
+  { id: 'meh', label: 'Meh', hex: '#FFF991' },
+  { id: 'tired', label: 'Tired', hex: '#FFC12A' },
+  { id: 'stressed', label: 'Stressed', hex: '#FF6E12' },
+  { id: 'angry', label: 'Angry', hex: '#FA6610' },
   { id: 'apathetic', label: 'Apathetic', hex: '#FFEAC6' },
-  { id: 'sad',       label: 'Sad',       hex: '#007EB4' },
-  { id: 'sick',      label: 'Sick',      hex: '#F3889E' },
+  { id: 'sad', label: 'Sad', hex: '#007EB4' },
+  { id: 'sick', label: 'Sick', hex: '#F3889E' },
 ];
 
 const moodById = (id) => MOODS.find((m) => m.id === id);
@@ -578,8 +578,8 @@ function MoodCircle({
               color: colored
                 ? textColorForMoods(moods)
                 : onClick && hover
-                ? '#9aa4ad'
-                : '#707c88',
+                  ? '#9aa4ad'
+                  : '#707c88',
             }}
           >
             {day}
@@ -1443,11 +1443,9 @@ function KeepsakeSelector({ value, onChange, usedNames }) {
                     type="button"
                     onClick={() => pick(k)}
                     onMouseEnter={() => setHl(idx)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors border-l-2 ${
-                      isHl ? 'bg-gray-50' : ''
-                    } ${
-                      isSelected ? 'border-gray-900' : 'border-transparent'
-                    }`}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors border-l-2 ${isHl ? 'bg-gray-50' : ''
+                      } ${isSelected ? 'border-gray-900' : 'border-transparent'
+                      }`}
                   >
                     <KeepsakeIcon name={k.name} emoji={k.emoji} size={22} />
                     <span className="text-gray-900 text-sm">{k.name}</span>
@@ -1640,12 +1638,12 @@ function EntryForm({ initial, entries, onSave, onCancel, submitLabel = 'Add to L
     const handle = setTimeout(() => {
       const op = dirty
         ? saveDraft({
-            keepsakeName: keepsake?.name ?? null,
-            emoji: keepsake?.emoji ?? null,
-            datetime,
-            title,
-            content,
-          })
+          keepsakeName: keepsake?.name ?? null,
+          emoji: keepsake?.emoji ?? null,
+          datetime,
+          title,
+          content,
+        })
         : clearDraft();
       op.catch((e) => console.error('Draft save failed:', e));
     }, 1000);
@@ -2067,7 +2065,7 @@ function EntryCard({ entry, entries, onDelete, onUpdate, moodData, onOpenMood, t
           )}
         </div>
       </div>
-      <h3 className="text-gray-900 font-medium text-sm mb-1.5">
+      <h3 className="font-mono text-gray-900 font-medium text-base mb-1.5 mt-1 tracking-tight">
         {renderRichText(entry.title)}
       </h3>
       <p className="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed">
@@ -2257,8 +2255,8 @@ export default function App() {
         console.error('load failed', e);
         setLoadError(
           'Could not load your data: ' +
-            (e?.message || String(e)) +
-            ' — check that the database tables exist (see SETUP.md).'
+          (e?.message || String(e)) +
+          ' — check that the database tables exist (see SETUP.md).'
         );
       }
       setLoading(false);
@@ -2347,7 +2345,10 @@ export default function App() {
         <div className="max-w-2xl mx-auto px-4 py-6">
           <header className="mb-6 flex items-start justify-between gap-3">
             <div>
-              <h1 className="text-xl font-semibold text-gray-900">Book of Shadows</h1>
+              <h1
+                className="font-mono text-3xl font-normal text-gray-900"
+                style={{ textShadow: '0 0 12px rgba(231,233,234,0.6), 0 0 40px rgba(231,233,234,0.18)' }}
+              >Book of Shadows</h1>
               <p className="text-gray-500 text-xs mt-0.5">
                 Digital working surface for to-dos, microblogging, and tracking
                 mood in a Year in Pixels matrix

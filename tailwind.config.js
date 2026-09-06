@@ -41,6 +41,7 @@ export default {
           'Arial',
           'sans-serif',
         ],
+        mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
       },
     },
   },
