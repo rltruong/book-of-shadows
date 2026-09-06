@@ -1480,6 +1480,11 @@ function keepsakeSlug(name) {
     .replace(/^-|-$/g, '');
 }
 
+// Subtle halo traced from each icon's own silhouette, so darker Keepsake art
+// still lifts off the card on the dark theme.
+const KEEPSAKE_GLOW =
+  'drop-shadow(0 0 1px rgba(255,255,255,0.55)) drop-shadow(0 0 3px rgba(255,255,255,0.35))';
+
 function KeepsakeIcon({ name, emoji, size, className = '' }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -1503,7 +1508,7 @@ function KeepsakeIcon({ name, emoji, size, className = '' }) {
       height={size}
       onError={() => setFailed(true)}
       className={`flex-shrink-0 ${className}`}
-      style={{ display: 'block' }}
+      style={{ display: 'block', filter: KEEPSAKE_GLOW }}
     />
   );
 }
@@ -2076,18 +2081,21 @@ function LogFilters({ entries, filters, setFilters }) {
   // Only show Keepsakes that have at least one entry so the dropdown
   // doesn't list 58 options when most are unused.
   const usedKeepsakes = useMemo(() => {
-    const map = new Map();
-    entries.forEach((e) => {
-      if (!map.has(e.keepsakeName)) {
-        map.set(e.keepsakeName, e.emoji);
-      }
-    });
-    return Array.from(map.entries())
-      .map(([name, emoji]) => ({ name, emoji }))
+    const names = new Set();
+    entries.forEach((e) => names.add(e.keepsakeName));
+    return Array.from(names)
+      .map((name) => ({
+        name,
+        // Look the emoji up live rather than trusting the one saved on the
+        // entry — entries created before an emoji was reassigned still carry
+        // the old glyph.
+        emoji: KEEPSAKES.find((k) => k.name === name)?.emoji ?? '',
+      }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [entries]);
 
-  const hasActive = filters.from || filters.to || filters.keepsake;
+  const hasActive =
+    filters.from || filters.to || filters.keepsake || filters.q;
 
   return (
     <div className="border border-gray-200 rounded p-3 mb-4 bg-gray-50">
@@ -2099,12 +2107,29 @@ function LogFilters({ entries, filters, setFilters }) {
         {hasActive && (
           <button
             type="button"
-            onClick={() => setFilters({ from: '', to: '', keepsake: '' })}
+            onClick={() =>
+              setFilters({ from: '', to: '', keepsake: '', q: '' })
+            }
             className="ml-auto text-xs text-gray-500 hover:text-gray-900 underline"
           >
             Clear all
           </button>
         )}
+      </div>
+      <div className="relative mb-2">
+        <Search
+          className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+          aria-hidden="true"
+        />
+        <input
+          type="search"
+          value={filters.q}
+          onChange={(e) => setFilters({ ...filters, q: e.target.value })}
+          placeholder="Search titles, entries, and Keepsakes…"
+          aria-label="Search entries"
+          className={`${inputBase} text-sm`}
+          style={{ paddingLeft: 34 }}
+        />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <div className="min-w-0">
@@ -2146,18 +2171,30 @@ function LogFilters({ entries, filters, setFilters }) {
 }
 
 function LogTab({ entries, onDelete, onUpdate, moodData, onOpenMood }) {
-  const [filters, setFilters] = useState({ from: '', to: '', keepsake: '' });
+  const [filters, setFilters] = useState({
+    from: '',
+    to: '',
+    keepsake: '',
+    q: '',
+  });
   const canHover = useHoverCapable();
 
   const filtered = useMemo(() => {
     const fromTs = filters.from ? new Date(filters.from + 'T00:00').getTime() : null;
     const toTs = filters.to ? new Date(filters.to + 'T23:59').getTime() : null;
+    // Every whitespace-separated term must appear somewhere in the entry
+    // (title, body, or Keepsake name), so terms narrow rather than widen.
+    const terms = filters.q.toLowerCase().split(/\s+/).filter(Boolean);
     return entries
       .filter((e) => {
         const ts = new Date(e.datetime).getTime();
         if (fromTs !== null && ts < fromTs) return false;
         if (toTs !== null && ts > toTs) return false;
         if (filters.keepsake && e.keepsakeName !== filters.keepsake) return false;
+        if (terms.length) {
+          const hay = `${e.title || ''} ${e.content || ''} ${e.keepsakeName || ''}`.toLowerCase();
+          if (!terms.every((t) => hay.includes(t))) return false;
+        }
         return true;
       })
       .sort((a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime());
@@ -2176,7 +2213,7 @@ function LogTab({ entries, onDelete, onUpdate, moodData, onOpenMood }) {
       <LogFilters entries={entries} filters={filters} setFilters={setFilters} />
       {filtered.length === 0 ? (
         <div className="text-center py-12 text-gray-400 text-sm">
-          No entries match the current filter.
+          No entries match the current search or filter.
         </div>
       ) : (
         <div className="space-y-2.5">
