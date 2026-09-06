@@ -1483,7 +1483,7 @@ function keepsakeSlug(name) {
 const KEEPSAKE_GLOW =
   'drop-shadow(0 0 1px rgba(255,255,255,0.55)) drop-shadow(0 0 3px rgba(255,255,255,0.35))';
 
-function KeepsakeIcon({ name, emoji, size, className = '' }) {
+function KeepsakeIcon({ name, emoji, size, className = '', glow = false }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     setFailed(false);
@@ -1506,7 +1506,7 @@ function KeepsakeIcon({ name, emoji, size, className = '' }) {
       height={size}
       onError={() => setFailed(true)}
       className={`flex-shrink-0 ${className}`}
-      style={{ display: 'block', filter: KEEPSAKE_GLOW }}
+      style={{ display: 'block', filter: glow ? KEEPSAKE_GLOW : 'none' }}
     />
   );
 }
@@ -2002,6 +2002,7 @@ function EntryCard({ entry, entries, onDelete, onUpdate, moodData, onOpenMood, t
             name={entry.keepsakeName}
             emoji={entry.emoji}
             size={narrow ? 36 : 44}
+            glow
           />
           <div className="min-w-0">
             <div className="text-gray-700 text-sm font-medium truncate">
@@ -2148,7 +2149,7 @@ function LogFilters({ entries, filters, setFilters }) {
             className={`${inputBase} text-sm`}
           />
         </div>
-        <div>
+        <div className="min-w-0">
           <label className="block text-xs text-gray-500 mb-1">Keepsake</label>
           <select
             value={filters.keepsake}
@@ -2158,7 +2159,7 @@ function LogFilters({ entries, filters, setFilters }) {
             <option value="">All Keepsakes</option>
             {usedKeepsakes.map((k) => (
               <option key={k.name} value={k.name}>
-                {k.emoji} {k.name}
+                {k.name}
               </option>
             ))}
           </select>

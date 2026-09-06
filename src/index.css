@@ -7,6 +7,7 @@ body,
 #root {
   height: 100%;
 }
+
 :root {
   /* Native controls (iOS date pickers, scrollbars, keyboards) render dark. */
   color-scheme: dark;
@@ -32,11 +33,18 @@ input[type='datetime-local'] {
   max-width: 100%;
   box-sizing: border-box;
   overflow: hidden;
-  /* Match the computed height of the app's other inputs/selects:
-     1px borders + py-2 (0.5rem × 2) + text-base line (1.5rem). With the
-     native appearance stripped, empty pickers otherwise collapse shorter. */
   min-height: calc(2.5rem + 2px);
   text-align: left;
+}
+
+/* Match the select's height to the date inputs so the filter row lines up.
+   Native appearance is left intact so the dropdown arrow stays. */
+select {
+  display: block;
+  min-height: calc(2.5rem + 2px);
+  height: calc(2.5rem + 2px);
+  box-sizing: border-box;
+  line-height: 1.5;
 }
 
 /* Slightly larger type on phones for legibility. Tailwind's text sizes are
