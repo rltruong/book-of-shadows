@@ -571,6 +571,15 @@ function MoodCircle({
               fontWeight: 700,
               lineHeight: 1,
               letterSpacing: '-0.3px',
+              // letter-spacing is applied after the LAST digit too, so the
+              // text box comes out 0.3px narrower than the digits actually
+              // are and flex centering lands them 0.15px right of center.
+              // Measured at 0.16px, which is half a device pixel on a 3x
+              // phone -- invisible in grey, but a visible lopsided edge in
+              // white-on-color. Give the box that 0.3px back. The tracking
+              // itself has to stay: at the 15px circles on a 320px phone,
+              // "365" only fits because of it.
+              paddingRight: '0.3px',
               position: 'relative',
               zIndex: 2,
               pointerEvents: 'none',
@@ -771,9 +780,13 @@ function TrackerTab({ moodData, onOpenMood }) {
   // Size the 14-wide grid to the available width so it never needs horizontal
   // scrolling. Circles cap at 24px (desktop) and shrink on phones to fit. The
   // inner wrapper's 6px padding (each side) is reserved for hover scale-up.
+  // 14 per row is fixed, so on phones the gap is the only slack there is to
+  // trade for a bigger (more legible) circle: a 2px tighter gap buys ~2px of
+  // diameter, which the day number's 0.42 ratio then follows.
+  const narrow = useIsNarrow(520);
   const rootRef = useRef(null);
   const [cell, setCell] = useState(24);
-  const GAP = 6;
+  const GAP = narrow ? 4 : 6;
   const PAD = 6;
 
   useEffect(() => {
@@ -794,50 +807,58 @@ function TrackerTab({ moodData, onOpenMood }) {
       if (ro) ro.disconnect();
       window.removeEventListener('resize', measure);
     };
-  }, []);
+  }, [GAP]);
 
   const fontSize = Math.max(7, Math.round(cell * 0.42));
   const canHover = useHoverCapable();
 
+  // Heading and grid ride together as one centered block. Cells cap at 24px,
+  // so on desktop the grid is far narrower than the content column and would
+  // otherwise hug its left edge. The heading stays left-aligned within the
+  // block, flush with the first circle rather than with the column.
+  const blockW = 14 * cell + 13 * GAP + PAD * 2;
+
   return (
     <div ref={rootRef}>
-      <div
-        className="text-gray-900 mb-5"
-        style={{ fontSize: 22, fontWeight: 500, letterSpacing: '-0.02em' }}
-      >
-        Year in Pixels
-      </div>
-      <div style={{ padding: PAD, overflow: 'hidden', boxSizing: 'border-box' }}>
+      <div style={{ width: blockW, maxWidth: '100%', margin: '0 auto' }}>
         <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: `repeat(14, ${cell}px)`,
-            gap: GAP,
-          }}
+          className="text-gray-900 mb-5"
+          style={{ fontSize: 22, fontWeight: 500, letterSpacing: '-0.02em', paddingLeft: PAD }}
         >
-          {days.map((n) => (
+          Year in Pixels
+        </div>
+        <div style={{ padding: PAD, overflow: 'hidden', boxSizing: 'border-box' }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: `repeat(14, ${cell}px)`,
+              gap: GAP,
+            }}
+          >
+            {days.map((n) => (
+              <MoodCircle
+                key={n}
+                day={n}
+                moods={moodData[n]}
+                size={cell}
+                fontSize={fontSize}
+                hoverScale
+                showTooltip={canHover}
+                onClick={() => onOpenMood(n)}
+              />
+            ))}
+          </div>
+          <div className="flex mt-1.5" style={{ gap: GAP }}>
             <MoodCircle
-              key={n}
-              day={n}
-              moods={moodData[n]}
+              day={365}
+              moods={moodData[365]}
               size={cell}
               fontSize={fontSize}
               hoverScale
               showTooltip={canHover}
-              onClick={() => onOpenMood(n)}
+              onClick={() => onOpenMood(365)}
             />
-          ))}
-        </div>
-        <div className="flex mt-1.5" style={{ gap: GAP }}>
-          <MoodCircle
-            day={365}
-            moods={moodData[365]}
-            size={cell}
-            fontSize={fontSize}
-            hoverScale
-            showTooltip={canHover}
-            onClick={() => onOpenMood(365)}
-          />
+          </div>
         </div>
       </div>
     </div>

@@ -108,3 +108,16 @@ are set inline.
 `input[type=date|datetime-local]` sizing and a matching `select` height; the
 comments there explain why each line exists. Root font-size bumps to 17px under
 520px, which is also the `useIsNarrow()` breakpoint used to switch tab labels.
+
+## Communication
+
+Richard is new to development. Explain in plain language, avoid jargon
+without defining it, and keep summaries short. When reporting what you
+changed, lead with what it means for the app, not the implementation.
+Ask before making changes beyond what was requested.
+
+## Conventions
+
+- American spelling throughout (color, center, centering, behavior).
+- Explain in plain language; Richard is new to development.
+- Ask before making changes beyond what was requested.
