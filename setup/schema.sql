@@ -22,12 +22,23 @@ create table mood_years (
   primary key (user_id, year)
 );
 
+-- One in-progress Fill Form entry per user, synced across devices.
+create table drafts (
+  user_id    uuid primary key default auth.uid() references auth.users,
+  payload    jsonb not null default '{}',
+  updated_at timestamptz
+);
+
 -- Row Level Security: each signed-in user can only see and edit their own rows.
 alter table entries    enable row level security;
 alter table mood_years enable row level security;
+alter table drafts     enable row level security;
 
 create policy "own entries" on entries
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create policy "own moods" on mood_years
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "own drafts" on drafts
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
