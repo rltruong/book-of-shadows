@@ -1976,6 +1976,17 @@ function EntryForm({ initial, entries, onSave, onCancel, submitLabel = 'Add to L
   );
 }
 
+// Lucide only ships an outline Triangle, and at headline size a filled glyph
+// reads better next to the monospace text. Points down when open; the -rotate-90
+// on the caller turns it to point right when the entry is collapsed.
+function SolidTriangle({ className = '' }) {
+  return (
+    <svg viewBox="0 0 12 12" className={className} fill="currentColor" aria-hidden="true">
+      <path d="M2.5 4.25h7L6 8.75z" />
+    </svg>
+  );
+}
+
 function EntryCard({
   entry,
   entries,
@@ -2098,22 +2109,26 @@ function EntryCard({
         </div>
       </div>
       <h3
-        className={`font-mono text-gray-900 font-medium text-base mt-1 tracking-tight flex items-start gap-1.5 ${
+        className={`font-mono text-gray-900 font-medium text-base mt-1 tracking-tight ${
           collapsed ? 'mb-0' : 'mb-1.5'
         }`}
       >
+        {renderRichText(entry.title)}
+        {/* Inline (not flexed) so the triangle trails the last line of a
+            headline that wraps, rather than floating up beside the first. */}
         <button
           type="button"
           onClick={onToggleCollapse}
           aria-expanded={!collapsed}
           title={collapsed ? 'Expand entry' : 'Collapse entry'}
-          className="flex items-center h-6 -ml-0.5 flex-shrink-0 text-gray-500 hover:text-gray-900 transition-colors"
+          className="inline-flex items-center align-middle ml-1.5 text-gray-500 hover:text-gray-900 transition-colors"
         >
-          <ChevronDown
-            className={`w-4 h-4 transition-transform ${collapsed ? '-rotate-90' : ''}`}
+          <SolidTriangle
+            className={`w-3.5 h-3.5 transition-transform ${
+              collapsed ? '-rotate-90' : ''
+            }`}
           />
         </button>
-        <span className="min-w-0">{renderRichText(entry.title)}</span>
       </h3>
       {!collapsed && (
         <p className="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed">
