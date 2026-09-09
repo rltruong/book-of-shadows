@@ -1976,7 +1976,17 @@ function EntryForm({ initial, entries, onSave, onCancel, submitLabel = 'Add to L
   );
 }
 
-function EntryCard({ entry, entries, onDelete, onUpdate, moodData, onOpenMood, tooltipEnabled }) {
+function EntryCard({
+  entry,
+  entries,
+  onDelete,
+  onUpdate,
+  moodData,
+  onOpenMood,
+  tooltipEnabled,
+  collapsed,
+  onToggleCollapse,
+}) {
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   // Desktop has room for larger keepsake art; phones keep the tighter 36px.
@@ -2087,17 +2097,40 @@ function EntryCard({ entry, entries, onDelete, onUpdate, moodData, onOpenMood, t
           )}
         </div>
       </div>
-      <h3 className="font-mono text-gray-900 font-medium text-base mb-1.5 mt-1 tracking-tight">
-        {renderRichText(entry.title)}
+      <h3
+        className={`font-mono text-gray-900 font-medium text-base mt-1 tracking-tight flex items-start gap-1.5 ${
+          collapsed ? 'mb-0' : 'mb-1.5'
+        }`}
+      >
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          aria-expanded={!collapsed}
+          title={collapsed ? 'Expand entry' : 'Collapse entry'}
+          className="flex items-center h-6 -ml-0.5 flex-shrink-0 text-gray-500 hover:text-gray-900 transition-colors"
+        >
+          <ChevronDown
+            className={`w-4 h-4 transition-transform ${collapsed ? '-rotate-90' : ''}`}
+          />
+        </button>
+        <span className="min-w-0">{renderRichText(entry.title)}</span>
       </h3>
-      <p className="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed">
-        {renderRichText(entry.content)}
-      </p>
+      {!collapsed && (
+        <p className="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed">
+          {renderRichText(entry.content)}
+        </p>
+      )}
     </article>
   );
 }
 
-function LogFilters({ entries, filters, setFilters }) {
+function LogFilters({
+  entries,
+  filters,
+  setFilters,
+  allCollapsed,
+  onToggleCollapseAll,
+}) {
   // Only show Keepsakes that have at least one entry so the dropdown
   // doesn't list 58 options when most are unused.
   const usedKeepsakes = useMemo(() => {
@@ -2124,17 +2157,32 @@ function LogFilters({ entries, filters, setFilters }) {
         <span className="text-xs font-medium text-gray-600 uppercase tracking-wider">
           Filter
         </span>
-        {hasActive && (
+        <div className="ml-auto flex items-center gap-3">
           <button
             type="button"
-            onClick={() =>
-              setFilters({ from: '', to: '', keepsake: '', q: '' })
-            }
-            className="ml-auto text-xs text-gray-500 hover:text-gray-900 underline"
+            onClick={onToggleCollapseAll}
+            aria-pressed={allCollapsed}
+            className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-900"
           >
-            Clear all
+            <ChevronDown
+              className={`w-3.5 h-3.5 transition-transform ${
+                allCollapsed ? '-rotate-90' : ''
+              }`}
+            />
+            {allCollapsed ? 'Expand all' : 'Collapse all'}
           </button>
-        )}
+          {hasActive && (
+            <button
+              type="button"
+              onClick={() =>
+                setFilters({ from: '', to: '', keepsake: '', q: '' })
+              }
+              className="text-xs text-gray-500 hover:text-gray-900 underline"
+            >
+              Clear all
+            </button>
+          )}
+        </div>
       </div>
       <div className="relative mb-2">
         <Search
@@ -2198,6 +2246,9 @@ function LogTab({ entries, onDelete, onUpdate, moodData, onOpenMood }) {
     q: '',
   });
   const canHover = useHoverCapable();
+  // Ids of entries whose microblog text is hidden. Collapsing is view-only —
+  // nothing about it is saved, so a reload starts fully expanded.
+  const [collapsedIds, setCollapsedIds] = useState(() => new Set());
 
   const filtered = useMemo(() => {
     const fromTs = filters.from ? new Date(filters.from + 'T00:00').getTime() : null;
@@ -2220,6 +2271,33 @@ function LogTab({ entries, onDelete, onUpdate, moodData, onOpenMood }) {
       .sort((a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime());
   }, [entries, filters]);
 
+  // "Collapse all" only speaks for what is currently on screen, so the label
+  // flips to "Expand all" once every visible entry is collapsed.
+  const allCollapsed =
+    filtered.length > 0 && filtered.every((e) => collapsedIds.has(e.id));
+
+  function toggleCollapse(id) {
+    setCollapsedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleCollapseAll() {
+    setCollapsedIds((prev) => {
+      if (allCollapsed) {
+        const next = new Set(prev);
+        filtered.forEach((e) => next.delete(e.id));
+        return next;
+      }
+      const next = new Set(prev);
+      filtered.forEach((e) => next.add(e.id));
+      return next;
+    });
+  }
+
   if (entries.length === 0) {
     return (
       <div className="text-center py-16 text-gray-400 text-sm">
@@ -2230,7 +2308,13 @@ function LogTab({ entries, onDelete, onUpdate, moodData, onOpenMood }) {
 
   return (
     <div>
-      <LogFilters entries={entries} filters={filters} setFilters={setFilters} />
+      <LogFilters
+        entries={entries}
+        filters={filters}
+        setFilters={setFilters}
+        allCollapsed={allCollapsed}
+        onToggleCollapseAll={toggleCollapseAll}
+      />
       {filtered.length === 0 ? (
         <div className="text-center py-12 text-gray-400 text-sm">
           No entries match the current search or filter.
@@ -2247,6 +2331,8 @@ function LogTab({ entries, onDelete, onUpdate, moodData, onOpenMood }) {
               moodData={moodData}
               onOpenMood={onOpenMood}
               tooltipEnabled={canHover}
+              collapsed={collapsedIds.has(entry.id)}
+              onToggleCollapse={() => toggleCollapse(entry.id)}
             />
           ))}
         </div>
