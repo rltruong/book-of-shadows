@@ -2179,8 +2179,8 @@ function LogFilters({
             aria-pressed={allCollapsed}
             className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-900"
           >
-            <ChevronDown
-              className={`w-3.5 h-3.5 transition-transform ${
+            <SolidTriangle
+              className={`w-3 h-3 transition-transform ${
                 allCollapsed ? '-rotate-90' : ''
               }`}
             />
@@ -2238,7 +2238,7 @@ function LogFilters({
           <select
             value={filters.keepsake}
             onChange={(e) => setFilters({ ...filters, keepsake: e.target.value })}
-            className={`${inputBase} text-sm`}
+            className={`${inputBase} text-sm pr-9`}
           >
             <option value="">All Keepsakes</option>
             {usedKeepsakes.map((k) => (
