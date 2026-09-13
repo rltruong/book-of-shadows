@@ -171,7 +171,7 @@ const KEEPSAKE_CONTEXT = KEEPSAKES.map((k) => {
 
 const SUGGESTION_SYSTEM_PROMPT = `You help someone pick a Hades / Hades II Keepsake sticker that fits the theme of a journal entry. They keep a microblog where each entry is tagged with a Keepsake whose mythological character or in-game mechanic resonates with what happened.
 
-Here is the full catalog of 58 Keepsakes, their character(s), and the user's curated thematic associations:
+Here is the full catalog of ${KEEPSAKES.length} Keepsakes, their character(s), and the user's curated thematic associations:
 
 ${KEEPSAKE_CONTEXT}
 
@@ -425,9 +425,31 @@ function drawGradientCircle(canvas, moods, size) {
   ctx.fill();
 }
 
-// Current devicePixelRatio, updating when it changes (browser zoom on
-// desktop, or a window moving between monitors), so circles can redraw at
-// the new density.
+// Watch one CSS media query. `fallback` is what to report where matchMedia
+// doesn't exist at all, which differs per query: a missing hover capability
+// should be assumed present, a missing width should not.
+function useMediaQuery(query, fallback = false) {
+  const read = () =>
+    typeof window !== 'undefined' && window.matchMedia
+      ? window.matchMedia(query).matches
+      : fallback;
+  const [matches, setMatches] = useState(read);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia(query);
+    setMatches(mq.matches); // in case it flipped between render and effect
+    const onChange = () => setMatches(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, [query]);
+  return matches;
+}
+
+// Current devicePixelRatio (browser zoom on desktop, or a window moving
+// between monitors), so circles can redraw at the new density. It reports a
+// number rather than a yes/no, so it can't use the hook above: the query is
+// pinned to the ratio in hand and fires when the ratio moves off it, at which
+// point the new ratio is read and a new query takes over.
 function useDevicePixelRatio() {
   const [dpr, setDpr] = useState(() =>
     typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
@@ -436,12 +458,8 @@ function useDevicePixelRatio() {
     if (typeof window === 'undefined' || !window.matchMedia) return;
     const mq = window.matchMedia(`(resolution: ${dpr}dppx)`);
     const onChange = () => setDpr(window.devicePixelRatio || 1);
-    if (mq.addEventListener) mq.addEventListener('change', onChange);
-    else mq.addListener(onChange);
-    return () => {
-      if (mq.removeEventListener) mq.removeEventListener('change', onChange);
-      else mq.removeListener(onChange);
-    };
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
   }, [dpr]);
   return dpr;
 }
@@ -737,45 +755,20 @@ function MoodModal({ day, initialMoods, onSave, onClose }) {
 // True on phone-width viewports. Used for label/layout choices in JS, since
 // this runtime's Tailwind only ships core classes (no responsive variants).
 function useIsNarrow(max = 520) {
-  const [narrow, setNarrow] = useState(
-    typeof window !== 'undefined' ? window.innerWidth <= max : false
-  );
-  useEffect(() => {
-    const onResize = () => setNarrow(window.innerWidth <= max);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, [max]);
-  return narrow;
+  return useMediaQuery(`(max-width: ${max}px)`);
 }
 
 // True only when the device has a real hovering pointer (a mouse). On touch,
 // hover tooltips are just a synthesized flash before the tap opens the editor,
 // so we suppress them there.
 function useHoverCapable() {
-  const query = '(hover: hover) and (pointer: fine)';
-  const read = () =>
-    typeof window !== 'undefined' && window.matchMedia
-      ? window.matchMedia(query).matches
-      : true;
-  const [can, setCan] = useState(read);
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-    const mq = window.matchMedia(query);
-    const onChange = () => setCan(mq.matches);
-    if (mq.addEventListener) mq.addEventListener('change', onChange);
-    else mq.addListener(onChange);
-    return () => {
-      if (mq.removeEventListener) mq.removeEventListener('change', onChange);
-      else mq.removeListener(onChange);
-    };
-  }, []);
-  return can;
+  return useMediaQuery('(hover: hover) and (pointer: fine)', true);
 }
 
-function TrackerTab({ moodData, onOpenMood }) {
-  const days = [];
-  for (let i = 1; i <= 364; i++) days.push(i);
+// Days 1-364 fill the 14-wide grid exactly (26 rows); day 365 hangs below it.
+const TRACKER_DAYS = Array.from({ length: 364 }, (_, i) => i + 1);
 
+function TrackerTab({ moodData, onOpenMood }) {
   // Size the 14-wide grid to the available width so it never needs horizontal
   // scrolling. Circles cap at 24px (desktop) and shrink on phones to fit. The
   // inner wrapper's 6px padding (each side) is reserved for hover scale-up.
@@ -789,8 +782,10 @@ function TrackerTab({ moodData, onOpenMood }) {
   const PAD = 6;
 
   useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
     function measure() {
-      const w = rootRef.current?.clientWidth;
+      const w = el.clientWidth;
       if (!w) return;
       const avail = w - PAD * 2; // usable width inside the padded wrapper
       // -2 safety so rounding never tips into a scrollbar.
@@ -798,14 +793,11 @@ function TrackerTab({ moodData, onOpenMood }) {
       setCell(size);
     }
     measure();
-    const ro =
-      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
-    if (ro && rootRef.current) ro.observe(rootRef.current);
-    window.addEventListener('resize', measure);
-    return () => {
-      if (ro) ro.disconnect();
-      window.removeEventListener('resize', measure);
-    };
+    // Watching the wrapper covers window resizes and rotation too, since both
+    // change its width — no separate resize listener needed.
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
   }, [GAP]);
 
   const fontSize = Math.max(7, Math.round(cell * 0.42));
@@ -834,7 +826,7 @@ function TrackerTab({ moodData, onOpenMood }) {
               gap: GAP,
             }}
           >
-            {days.map((n) => (
+            {TRACKER_DAYS.map((n) => (
               <MoodCircle
                 key={n}
                 day={n}
@@ -1233,8 +1225,6 @@ function MoodPie({ counts }) {
     start = end;
   });
 
-  // Lay out leader-line labels: per side, top to bottom, nudged apart so
-  // neighbors never overlap (min 14px between baselines).
   // Classic pie-callout layout: each side's labels align in a fixed column
   // (gutter) just outside the pie, cascaded top-to-bottom, and leaders run
   // from the slice's arc point on a slant to their label's row. Label order
@@ -1617,6 +1607,21 @@ function DraftToast({ savedAt, onDiscard, onClose }) {
   );
 }
 
+// A form is worth keeping as a draft once any of the three content fields has
+// something in it. The datetime never counts: it is prefilled with "now", so
+// it is never empty and would make every untouched form look dirty.
+const hasDraftContent = (v) => !!v.keepsake || !!v.title.trim() || !!v.content.trim();
+
+// The shape stored in the drafts table. Keepsakes are saved by name, since the
+// catalog entry itself is rebuilt from KEEPSAKES when the draft is restored.
+const toDraftPayload = (v) => ({
+  keepsakeName: v.keepsake?.name ?? null,
+  emoji: v.keepsake?.emoji ?? null,
+  datetime: v.datetime,
+  title: v.title,
+  content: v.content,
+});
+
 function EntryForm({ initial, entries, onSave, onCancel, submitLabel = 'Add to Log' }) {
   const [keepsake, setKeepsake] = useState(
     initial?.keepsake ?? null
@@ -1634,7 +1639,7 @@ function EntryForm({ initial, entries, onSave, onCancel, submitLabel = 'Add to L
 
   // The reset button only renders in new-entry mode (edit mode has Cancel),
   // and only when the user has actually put something into the form.
-  const isDirty = !!keepsake || !!title.trim() || !!content.trim();
+  const isDirty = hasDraftContent({ keepsake, title, content });
   const showReset = !initial && isDirty;
 
   function handleReset() {
@@ -1697,16 +1702,10 @@ function EntryForm({ initial, entries, onSave, onCancel, submitLabel = 'Add to L
       skipNextSaveRef.current = false;
       return;
     }
-    const dirty = !!keepsake || !!title.trim() || !!content.trim();
+    const draft = { keepsake, datetime, title, content };
     const handle = setTimeout(() => {
-      const op = dirty
-        ? saveDraft({
-          keepsakeName: keepsake?.name ?? null,
-          emoji: keepsake?.emoji ?? null,
-          datetime,
-          title,
-          content,
-        })
+      const op = hasDraftContent(draft)
+        ? saveDraft(toDraftPayload(draft))
         : clearDraft();
       op.catch((e) => console.error('Draft save failed:', e));
     }, 1000);
@@ -1719,15 +1718,10 @@ function EntryForm({ initial, entries, onSave, onCancel, submitLabel = 'Add to L
     return () => {
       if (!draftReadyRef.current || submittedRef.current) return;
       const v = latestRef.current;
-      const dirty = !!v.keepsake || !!v.title.trim() || !!v.content.trim();
-      if (dirty) {
-        saveDraft({
-          keepsakeName: v.keepsake?.name ?? null,
-          emoji: v.keepsake?.emoji ?? null,
-          datetime: v.datetime,
-          title: v.title,
-          content: v.content,
-        }).catch((e) => console.error('Draft flush failed:', e));
+      if (hasDraftContent(v)) {
+        saveDraft(toDraftPayload(v)).catch((e) =>
+          console.error('Draft flush failed:', e)
+        );
       }
     };
   }, [isNewEntry]);
@@ -1856,7 +1850,7 @@ function EntryForm({ initial, entries, onSave, onCancel, submitLabel = 'Add to L
           <label className={`${labelBase} mb-0`}>Keepsake</label>
           {cycleLabel && (
             <span className="text-xs text-gray-500">
-              {cycleLabel} · {usedKeepsakes.size}/58 used
+              {cycleLabel} · {usedKeepsakes.size}/{KEEPSAKES.length} used
             </span>
           )}
         </div>
@@ -2187,7 +2181,7 @@ function LogFilters({
   onToggleCollapseAll,
 }) {
   // Only show Keepsakes that have at least one entry so the dropdown
-  // doesn't list all 58 when most are unused. Pulling the objects out of the
+  // doesn't list the whole catalog when most of it is unused. Pulling the objects out of the
   // catalog (rather than rebuilding them from the entries) keeps the live
   // emoji — entries made before an emoji was reassigned still carry the old
   // glyph — and the character aliases that /meg-style search needs.

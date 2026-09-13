@@ -2,13 +2,12 @@
 // Supabase dashboard (Authentication -> Users -> Add user, "Auto Confirm User"
 // checked), then sign in here with that password.
 //
-// Session behavior mirrors the Expense Tracker: a rolling 72-hour window.
-// Every open inside the window refreshes the timestamp, so the sign-in screen
-// only returns after ~72h of NOT opening the app. The window is checked
-// synchronously first so there's no login-screen flash on load; the live
-// Supabase session is then confirmed in the background. Unlike the Expense
-// Tracker there is no local cache to fall back on, so if the live session is
-// gone the gate is shown even inside the window.
+// Session behavior is a rolling 72-hour window. Every open inside the window
+// refreshes the timestamp, so the sign-in screen only returns after ~72h of
+// NOT opening the app. The window is checked synchronously first so there's no
+// login-screen flash on load; the live Supabase session is then confirmed in
+// the background. There is no local copy of the data to fall back on, so if
+// that session is gone the gate is shown even inside the window.
 
 import React, { useEffect, useState } from 'react';
 import { supabase } from './db';
@@ -51,7 +50,7 @@ export default function AuthGate({ children }) {
       stampNow();
       setReady(true);
       // Confirm the live session quietly; if it's actually gone, drop to the
-      // gate (no local cache to serve from, unlike the Expense Tracker).
+      // gate, since there's no local cache to serve from.
       supabase.auth
         .getSession()
         .then(({ data }) => {
