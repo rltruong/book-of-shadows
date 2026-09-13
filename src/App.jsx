@@ -6,7 +6,6 @@ import {
   deleteEntry,
   loadMoods,
   saveMoods,
-  migrateSeedIfEmpty,
   loadDraft,
   saveDraft,
   clearDraft,
@@ -189,8 +188,6 @@ Return ONLY valid JSON in this exact shape, with no preamble or markdown fences:
 
 // Suggestions run through the `suggest-keepsakes` Supabase Edge Function,
 // which holds the Anthropic API key server-side. Toggle in src/config.js.
-const SUGGESTIONS_ENABLED = ENABLE_SUGGESTIONS;
-
 async function fetchKeepsakeSuggestions(title, content, unavailable, signal) {
   const unavailableBlock =
     unavailable && unavailable.length > 0
@@ -1403,8 +1400,8 @@ function KeepsakeSelector({
 
   return (
     <div ref={wrapperRef} className="relative">
-      {/* min-h matches the height index.css pins on date inputs and selects, so
-          this control lines up with the boxes beside it in the log filter no
+      {/* min-h matches the height index.css pins on date inputs, so this
+          control lines up with the boxes beside it in the log filter no
           matter how big its icon is. */}
       <button
         type="button"
@@ -1766,7 +1763,7 @@ function EntryForm({ initial, entries, onSave, onCancel, submitLabel = 'Add to L
   const requestIdRef = useRef(0);
 
   useEffect(() => {
-    if (!SUGGESTIONS_ENABLED) return;
+    if (!ENABLE_SUGGESTIONS) return;
     const combined = (title + ' ' + content).trim();
     if (combined.length < 25) {
       setRawSuggestions([]);
@@ -2452,9 +2449,6 @@ export default function App() {
   useEffect(() => {
     async function load() {
       try {
-        // First login on an empty account: push the bundled seed into Supabase
-        // once, then read back. Any device after that just reads.
-        await migrateSeedIfEmpty();
         const [entryList, moodMap] = await Promise.all([listEntries(), loadMoods()]);
         setEntries(entryList);
         setMoodData(moodMap && typeof moodMap === 'object' ? moodMap : {});

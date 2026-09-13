@@ -12,9 +12,6 @@
 
 import React, { useEffect, useState } from 'react';
 import { supabase } from './db';
-import { SUPABASE_URL } from './config';
-
-const notConfigured = SUPABASE_URL.startsWith('PASTE_');
 
 const AUTH_TS_KEY = 'bos_auth_last_ok';
 const AUTH_TTL_MS = 72 * 60 * 60 * 1000; // 72 hours
@@ -39,7 +36,7 @@ function stampNow() {
 export default function AuthGate({ children }) {
   // Synchronous first read: inside the 72h window we render the app
   // immediately (no flash) and confirm the session in the background.
-  const [authed, setAuthed] = useState(() => !notConfigured && withinWindow());
+  const [authed, setAuthed] = useState(withinWindow);
   const [ready, setReady] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -47,11 +44,6 @@ export default function AuthGate({ children }) {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (notConfigured) {
-      setReady(true);
-      return;
-    }
-
     let cancelled = false;
 
     if (withinWindow()) {
@@ -109,17 +101,6 @@ export default function AuthGate({ children }) {
       sub.subscription.unsubscribe();
     };
   }, []);
-
-  if (notConfigured) {
-    return (
-      <Shell>
-        <p className="text-sm text-gray-700 leading-relaxed">
-          Almost there — open <code className="bg-gray-100 px-1 rounded">src/config.js</code>{' '}
-          and paste in your Supabase URL and publishable key, then redeploy.
-        </p>
-      </Shell>
-    );
-  }
 
   if (authed) return children;
 
