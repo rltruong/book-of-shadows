@@ -110,7 +110,7 @@ pay-per-use and these small suggestion calls cost fractions of a cent.)
 
 ## Session behavior
 
-Signing in starts a rolling **72-hour** window (same as the Expense Tracker):
+Signing in starts a rolling **72-hour** window:
 every time you open the app the clock resets, so the sign-in screen only
 returns after roughly 72 hours of *not* opening it. Signing out ends the
 window immediately. Note for iPhone home-screen use: iOS can purge a web
