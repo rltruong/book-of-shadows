@@ -1976,9 +1976,9 @@ function EntryForm({ initial, entries, onSave, onCancel, submitLabel = 'Add to L
   );
 }
 
-// Lucide only ships an outline Triangle, and at headline size a filled glyph
-// reads better next to the monospace text. Points down when open; the -rotate-90
-// on the caller turns it to point right when the entry is collapsed.
+// Lucide only ships an outline Triangle, and a filled glyph reads better than a
+// hairline outline at this size. Points down when the entry is open; the
+// -rotate-90 on the caller turns it to point right when the entry is collapsed.
 function SolidTriangle({ className = '' }) {
   return (
     <svg viewBox="0 0 12 12" className={className} fill="currentColor" aria-hidden="true">
@@ -2070,6 +2070,19 @@ function EntryCard({
           )}
           <button
             type="button"
+            onClick={onToggleCollapse}
+            aria-expanded={!collapsed}
+            title={collapsed ? 'Expand entry' : 'Collapse entry'}
+            className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
+          >
+            <SolidTriangle
+              className={`w-4 h-4 transition-transform ${
+                collapsed ? '-rotate-90' : ''
+              }`}
+            />
+          </button>
+          <button
+            type="button"
             onClick={() => setEditing(true)}
             title="Edit"
             className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded transition-colors"
@@ -2109,26 +2122,11 @@ function EntryCard({
         </div>
       </div>
       <h3
-        className={`font-mono text-gray-900 font-medium text-base mt-1 tracking-tight ${
+        className={`font-mono text-gray-900 font-medium text-base mt-1 tracking-tight break-words ${
           collapsed ? 'mb-0' : 'mb-1.5'
         }`}
       >
         {renderRichText(entry.title)}
-        {/* Inline (not flexed) so the triangle trails the last line of a
-            headline that wraps, rather than floating up beside the first. */}
-        <button
-          type="button"
-          onClick={onToggleCollapse}
-          aria-expanded={!collapsed}
-          title={collapsed ? 'Expand entry' : 'Collapse entry'}
-          className="inline-flex items-center align-middle ml-1.5 text-gray-500 hover:text-gray-900 transition-colors"
-        >
-          <SolidTriangle
-            className={`w-3.5 h-3.5 transition-transform ${
-              collapsed ? '-rotate-90' : ''
-            }`}
-          />
-        </button>
       </h3>
       {!collapsed && (
         <p className="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed">
