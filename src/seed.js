@@ -15,7 +15,7 @@ const seed = {
     },
     {
       id: 'entry_1783367361522_zamv8',
-      keepsakeName: 'Blood-filled Vial',
+      keepsakeName: 'Blood-Filled Vial',
       emoji: '🩸',
       datetime: '2026-07-06T12:43',
       title: 'Car Maintenance',
