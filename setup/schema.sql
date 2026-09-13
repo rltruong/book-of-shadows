@@ -29,10 +29,19 @@ create table drafts (
   updated_at timestamptz
 );
 
+-- One row per user of small, cross-device view state — currently just which
+-- Keepsake Log entries are collapsed: { "collapsedEntryIds": ["entry_1", ...] }
+create table view_prefs (
+  user_id    uuid primary key default auth.uid() references auth.users,
+  data       jsonb not null default '{}',
+  updated_at timestamptz
+);
+
 -- Row Level Security: each signed-in user can only see and edit their own rows.
 alter table entries    enable row level security;
 alter table mood_years enable row level security;
 alter table drafts     enable row level security;
+alter table view_prefs enable row level security;
 
 create policy "own entries" on entries
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
@@ -41,4 +50,7 @@ create policy "own moods" on mood_years
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create policy "own drafts" on drafts
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "own view prefs" on view_prefs
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);

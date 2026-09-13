@@ -10,6 +10,8 @@ import {
   loadDraft,
   saveDraft,
   clearDraft,
+  loadViewPrefs,
+  saveViewPrefs,
 } from './db';
 import { ENABLE_SUGGESTIONS } from './config';
 import {
@@ -1307,7 +1309,21 @@ const inputBase =
 
 const labelBase = 'block text-xs font-medium text-gray-600 mb-1.5';
 
-function KeepsakeSelector({ value, onChange, usedNames }) {
+// The Keepsake dropdown, shared by the Fill Form (pick the entry's Keepsake)
+// and the Keepsake Log filter (narrow the list to one Keepsake). `options`
+// limits the catalog it draws from — the filter passes only Keepsakes that
+// actually have entries — and `usedNames` hides ones already spent this cycle.
+// `searchable` adds the search box and the /character hint; the filter turns it
+// off, since its list is short enough to just scroll.
+function KeepsakeSelector({
+  value,
+  onChange,
+  usedNames,
+  options,
+  placeholder = 'Select a Keepsake…',
+  iconSize = 24,
+  searchable = true,
+}) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [hl, setHl] = useState(0);
@@ -1320,8 +1336,11 @@ function KeepsakeSelector({ value, onChange, usedNames }) {
   // The active list excludes anything used in the current cycle, except the
   // already-selected Keepsake so that edits can see what they currently have.
   const availableKeepsakes = useMemo(
-    () => KEEPSAKES.filter((k) => !used.has(k.name) || k.name === value?.name),
-    [used, value?.name]
+    () =>
+      (options || KEEPSAKES).filter(
+        (k) => !used.has(k.name) || k.name === value?.name
+      ),
+    [options, used, value?.name]
   );
 
   useEffect(() => {
@@ -1336,8 +1355,8 @@ function KeepsakeSelector({ value, onChange, usedNames }) {
   }, []);
 
   useEffect(() => {
-    if (open && inputRef.current) inputRef.current.focus();
-  }, [open]);
+    if (open && searchable && inputRef.current) inputRef.current.focus();
+  }, [open, searchable]);
 
   useEffect(() => {
     setHl(0);
@@ -1384,20 +1403,26 @@ function KeepsakeSelector({ value, onChange, usedNames }) {
 
   return (
     <div ref={wrapperRef} className="relative">
+      {/* min-h matches the height index.css pins on date inputs and selects, so
+          this control lines up with the boxes beside it in the log filter no
+          matter how big its icon is. */}
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-white border border-gray-300 hover:border-gray-400 rounded text-left transition-colors focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900"
+        className="w-full min-h-[calc(2.5rem+2px)] flex items-center justify-between gap-2 px-3 py-2 bg-white border border-gray-300 hover:border-gray-400 rounded text-left transition-colors focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900"
       >
         {value ? (
-          <span className="flex items-center gap-2.5">
-            <KeepsakeIcon name={value.name} emoji={value.emoji} size={24} />
-            <span className="text-gray-900 text-sm">{value.name}</span>
+          // min-w-0 lets the flex row shrink past the name's natural width, so
+          // a long Keepsake ellipsizes on one line instead of wrapping and
+          // making the control taller than the boxes beside it.
+          <span className="flex items-center gap-2.5 min-w-0">
+            <KeepsakeIcon name={value.name} emoji={value.emoji} size={iconSize} />
+            <span className="text-gray-900 text-sm truncate">{value.name}</span>
           </span>
         ) : (
-          <span className="text-gray-400 text-sm">Select a Keepsake…</span>
+          <span className="text-gray-400 text-sm truncate">{placeholder}</span>
         )}
-        <span className="flex items-center gap-1 text-gray-400">
+        <span className="flex items-center gap-1 text-gray-400 flex-shrink-0">
           {value && (
             <span
               role="button"
@@ -1427,26 +1452,28 @@ function KeepsakeSelector({ value, onChange, usedNames }) {
 
       {open && (
         <div className="absolute z-30 mt-1 w-full bg-white border border-gray-300 rounded shadow-lg overflow-hidden">
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-200">
-            <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
-            <input
-              ref={inputRef}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={onKey}
-              placeholder="Search or type /character"
-              className="flex-1 bg-transparent text-gray-900 placeholder-gray-400 focus:outline-none text-base"
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={() => setQuery('')}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
+          {searchable && (
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-200">
+              <Search className="w-4 h-4 text-gray-400 flex-shrink-0" />
+              <input
+                ref={inputRef}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={onKey}
+                placeholder="Search or type /character"
+                className="flex-1 bg-transparent text-gray-900 placeholder-gray-400 focus:outline-none text-base"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          )}
 
           <div ref={listRef} className="max-h-72 overflow-y-auto">
             {filtered.length === 0 ? (
@@ -1468,19 +1495,21 @@ function KeepsakeSelector({ value, onChange, usedNames }) {
                       } ${isSelected ? 'border-gray-900' : 'border-transparent'
                       }`}
                   >
-                    <KeepsakeIcon name={k.name} emoji={k.emoji} size={22} />
+                    <KeepsakeIcon name={k.name} emoji={k.emoji} size={iconSize - 2} />
                     <span className="text-gray-900 text-sm">{k.name}</span>
                   </button>
                 );
               })
             )}
           </div>
-          <div className="px-3 py-1.5 border-t border-gray-200 text-xs text-gray-500">
-            Try{' '}
-            <span className="text-gray-700 font-mono">/meg</span>,{' '}
-            <span className="text-gray-700 font-mono">/aphro</span>,{' '}
-            <span className="text-gray-700 font-mono">/zag</span>…
-          </div>
+          {searchable && (
+            <div className="px-3 py-1.5 border-t border-gray-200 text-xs text-gray-500">
+              Try{' '}
+              <span className="text-gray-700 font-mono">/meg</span>,{' '}
+              <span className="text-gray-700 font-mono">/aphro</span>,{' '}
+              <span className="text-gray-700 font-mono">/zag</span>…
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -1497,6 +1526,22 @@ function keepsakeSlug(name) {
     .replace(/'/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
+}
+
+// Ask the browser for a set of Keepsake PNGs before anything displays them,
+// so a dropdown that opens later paints its icons straight from cache instead
+// of showing a beat of empty space. The module-level set keeps each image to
+// one request per session.
+const preloadedKeepsakeIcons = new Set();
+function preloadKeepsakeIcons(keepsakes) {
+  if (typeof Image === 'undefined') return;
+  keepsakes.forEach((k) => {
+    const slug = keepsakeSlug(k.name);
+    if (preloadedKeepsakeIcons.has(slug)) return;
+    preloadedKeepsakeIcons.add(slug);
+    const img = new Image();
+    img.src = `keepsakes/${slug}.png`;
+  });
 }
 
 // Subtle halo traced from each icon's own silhouette, so darker Keepsake art
@@ -2145,20 +2190,22 @@ function LogFilters({
   onToggleCollapseAll,
 }) {
   // Only show Keepsakes that have at least one entry so the dropdown
-  // doesn't list 58 options when most are unused.
+  // doesn't list all 58 when most are unused. Pulling the objects out of the
+  // catalog (rather than rebuilding them from the entries) keeps the live
+  // emoji — entries made before an emoji was reassigned still carry the old
+  // glyph — and the character aliases that /meg-style search needs.
   const usedKeepsakes = useMemo(() => {
     const names = new Set();
     entries.forEach((e) => names.add(e.keepsakeName));
-    return Array.from(names)
-      .map((name) => ({
-        name,
-        // Look the emoji up live rather than trusting the one saved on the
-        // entry — entries created before an emoji was reassigned still carry
-        // the old glyph.
-        emoji: KEEPSAKES.find((k) => k.name === name)?.emoji ?? '',
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    return KEEPSAKES.filter((k) => names.has(k.name));
   }, [entries]);
+
+  // The dropdown shows the same art the entry cards below it already load, so
+  // fetching it up front costs no extra download — it just means the icons are
+  // there the instant the list opens.
+  useEffect(() => {
+    preloadKeepsakeIcons(usedKeepsakes);
+  }, [usedKeepsakes]);
 
   const hasActive =
     filters.from || filters.to || filters.keepsake || filters.q;
@@ -2233,25 +2280,36 @@ function LogFilters({
         </div>
         <div className="min-w-0">
           <label className="block text-xs text-gray-500 mb-1">Keepsake</label>
-          <select
-            value={filters.keepsake}
-            onChange={(e) => setFilters({ ...filters, keepsake: e.target.value })}
-            className={`${inputBase} text-sm pr-9`}
-          >
-            <option value="">All Keepsakes</option>
-            {usedKeepsakes.map((k) => (
-              <option key={k.name} value={k.name}>
-                {k.name}
-              </option>
-            ))}
-          </select>
+          <KeepsakeSelector
+            value={
+              usedKeepsakes.find((k) => k.name === filters.keepsake) || null
+            }
+            onChange={(k) =>
+              setFilters({ ...filters, keepsake: k ? k.name : '' })
+            }
+            options={usedKeepsakes}
+            placeholder="All Keepsakes"
+            iconSize={20}
+            searchable={false}
+          />
         </div>
       </div>
     </div>
   );
 }
 
-function LogTab({ entries, onDelete, onUpdate, moodData, onOpenMood }) {
+function LogTab({
+  entries,
+  onDelete,
+  onUpdate,
+  moodData,
+  onOpenMood,
+  // Ids of entries whose microblog text is hidden. The set lives in App so it
+  // survives tab switches and is saved to Supabase, which is what makes the
+  // same entries show up collapsed on every device.
+  collapsedIds,
+  setCollapsedIds,
+}) {
   const [filters, setFilters] = useState({
     from: '',
     to: '',
@@ -2259,9 +2317,6 @@ function LogTab({ entries, onDelete, onUpdate, moodData, onOpenMood }) {
     q: '',
   });
   const canHover = useHoverCapable();
-  // Ids of entries whose microblog text is hidden. Collapsing is view-only —
-  // nothing about it is saved, so a reload starts fully expanded.
-  const [collapsedIds, setCollapsedIds] = useState(() => new Set());
 
   const filtered = useMemo(() => {
     const fromTs = filters.from ? new Date(filters.from + 'T00:00').getTime() : null;
@@ -2360,6 +2415,13 @@ export default function App() {
   const [moodData, setMoodData] = useState({});
   const [moodModalDay, setMoodModalDay] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Which Keepsake Log entries are collapsed, shared with Supabase so the log
+  // looks the same on every device. `ready` stays false until the saved value
+  // has been read (or has failed to read, e.g. before the view_prefs table
+  // exists), and `saved` records what is already stored so loading it doesn't
+  // immediately write it back.
+  const [collapsedIds, setCollapsedIds] = useState(() => new Set());
+  const collapsedSyncRef = useRef({ ready: false, saved: '' });
 
   const [loadError, setLoadError] = useState('');
 
@@ -2372,6 +2434,23 @@ export default function App() {
         const [entryList, moodMap] = await Promise.all([listEntries(), loadMoods()]);
         setEntries(entryList);
         setMoodData(moodMap && typeof moodMap === 'object' ? moodMap : {});
+        // Kept out of the Promise.all and its own try/catch: collapsed state is
+        // a nicety, and the app must still load if the view_prefs table isn't
+        // there yet.
+        try {
+          const prefs = await loadViewPrefs();
+          const live = new Set(entryList.map((e) => e.id));
+          // Drop ids of entries that no longer exist, so the saved list can't
+          // grow forever.
+          const ids = (
+            Array.isArray(prefs?.collapsedEntryIds) ? prefs.collapsedEntryIds : []
+          ).filter((id) => live.has(id));
+          collapsedSyncRef.current.saved = [...ids].sort().join('|');
+          collapsedSyncRef.current.ready = true;
+          setCollapsedIds(new Set(ids));
+        } catch (e) {
+          console.error('collapse state load failed', e);
+        }
       } catch (e) {
         console.error('load failed', e);
         setLoadError(
@@ -2384,6 +2463,21 @@ export default function App() {
     }
     load();
   }, []);
+
+  // Save ~0.6s after the collapsed set settles, so a burst of toggles (or
+  // "Collapse all") costs one write instead of one per entry.
+  useEffect(() => {
+    const key = Array.from(collapsedIds).sort().join('|');
+    if (!collapsedSyncRef.current.ready) return;
+    if (key === collapsedSyncRef.current.saved) return;
+    const timer = setTimeout(() => {
+      collapsedSyncRef.current.saved = key;
+      saveViewPrefs({ collapsedEntryIds: Array.from(collapsedIds) }).catch((e) =>
+        console.error('collapse state save failed', e)
+      );
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [collapsedIds]);
 
   async function handleCreate(data) {
     const entry = {
@@ -2420,6 +2514,12 @@ export default function App() {
     try {
       await deleteEntry(id);
       setEntries((prev) => prev.filter((e) => e.id !== id));
+      setCollapsedIds((prev) => {
+        if (!prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     } catch (e) {
       console.error('delete failed', e);
     }
@@ -2520,6 +2620,8 @@ export default function App() {
               onUpdate={handleUpdate}
               moodData={moodData}
               onOpenMood={setMoodModalDay}
+              collapsedIds={collapsedIds}
+              setCollapsedIds={setCollapsedIds}
             />
           ) : tab === 'tracker' ? (
             <TrackerTab moodData={moodData} onOpenMood={setMoodModalDay} />

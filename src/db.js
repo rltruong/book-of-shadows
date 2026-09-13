@@ -118,3 +118,25 @@ export async function clearDraft() {
     .eq('user_id', data.user.id);
   if (error) throw error;
 }
+
+// ---- view prefs: one small JSON blob per user, synced across devices ----
+// Right now this only holds which Keepsake Log entries are collapsed, so the
+// log looks the same on the phone as it did on the laptop.
+export async function loadViewPrefs() {
+  const { data, error } = await supabase
+    .from('view_prefs')
+    .select('data')
+    .maybeSingle();
+  if (error) throw error;
+  return data?.data ?? {};
+}
+
+export async function saveViewPrefs(next) {
+  const { error } = await supabase
+    .from('view_prefs')
+    .upsert(
+      { data: next, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    );
+  if (error) throw error;
+}

@@ -24,10 +24,10 @@ You'll do five things:
 2. Open `setup/schema.sql` from this project, copy ALL of it, paste, press **Run**.
 3. You should see "Success. No rows returned."
 
-This creates three tables — `entries` (your log), `mood_years` (the pixel
-grid), and `drafts` (the half-written Fill Form entry that follows you between
-devices) — and the Row Level Security policies that keep each one private to
-you.
+This creates four tables — `entries` (your log), `mood_years` (the pixel
+grid), `drafts` (the half-written Fill Form entry that follows you between
+devices), and `view_prefs` (which Keepsake Log entries you have collapsed) —
+and the Row Level Security policies that keep each one private to you.
 
 **Already set up before `drafts` existed?** Re-running the whole file will
 error on the tables you already have. Instead run just this part:
@@ -47,6 +47,24 @@ create policy "own drafts" on drafts
 
 Without it the app still works, but draft autosave fails quietly in the
 background.
+
+**Already set up before `view_prefs` existed?** Same idea — run just this part:
+
+```sql
+create table view_prefs (
+  user_id    uuid primary key default auth.uid() references auth.users,
+  data       jsonb not null default '{}',
+  updated_at timestamptz
+);
+
+alter table view_prefs enable row level security;
+
+create policy "own view prefs" on view_prefs
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+```
+
+Without it the app still works, but collapsing entries in the Keepsake Log
+stays on that one device instead of following you.
 
 ## 3. Set up password sign-in
 
