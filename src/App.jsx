@@ -1065,16 +1065,16 @@ function SummaryTab({ moodData }) {
         ))}
       </div>
 
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-baseline gap-2.5 min-w-0">
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="min-w-0">
           <h3 className="font-medium text-gray-900 whitespace-nowrap" style={{ fontSize: 15 }}>
             Mood frequency
           </h3>
-          <span className="text-gray-500" style={{ fontSize: 13 }}>
+          <div className="text-gray-500 mt-0.5" style={{ fontSize: 13 }}>
             {totalDays} day{totalDays !== 1 ? 's' : ''} logged so far
-          </span>
+          </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-shrink-0">
           {['pie', 'bar'].map((mk) => (
             <button
               key={mk}
@@ -2409,8 +2409,24 @@ function LogTab({
   );
 }
 
+// The last tab viewed is remembered per device (not per account) in
+// localStorage, so opening the app on a phone returns to whatever that phone
+// was last looking at. An unreadable or unknown value falls back to the form.
+const TAB_KEYS = ['form', 'log', 'tracker', 'summary'];
+const LAST_TAB_KEY = 'bos_last_tab';
+
+function readLastTab() {
+  try {
+    const saved = localStorage.getItem(LAST_TAB_KEY);
+    if (TAB_KEYS.includes(saved)) return saved;
+  } catch {
+    // private mode / storage disabled
+  }
+  return 'form';
+}
+
 export default function App() {
-  const [tab, setTab] = useState('form');
+  const [tab, setTab] = useState(readLastTab);
   const [entries, setEntries] = useState([]);
   const [moodData, setMoodData] = useState({});
   const [moodModalDay, setMoodModalDay] = useState(null);
@@ -2424,6 +2440,14 @@ export default function App() {
   const collapsedSyncRef = useRef({ ready: false, saved: '' });
 
   const [loadError, setLoadError] = useState('');
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LAST_TAB_KEY, tab);
+    } catch {
+      // private mode / storage disabled
+    }
+  }, [tab]);
 
   useEffect(() => {
     async function load() {
